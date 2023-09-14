@@ -1,7 +1,7 @@
 import sqlite3
 from BCBio import GFF
 
-def parse_gff_and_insert(gff_file, db_file):
+def process_bakta_output(gff_file, db_file):
     # Create an SQLite database connection
     conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
@@ -60,7 +60,7 @@ def parse_gff_and_insert(gff_file, db_file):
     conn.commit()
     conn.close()
 
-# Example usage:
-gff_file = "SRR15667803.gff3"
-db_file = "your_database.db"
-parse_gff_and_insert(gff_file, db_file)
+
+def delete_bakta_output_files(bakta_output):
+    # Implement code to delete Bakta output files after processing
+    # Use os.remove() or shutil.rmtree() to delete files or directories
