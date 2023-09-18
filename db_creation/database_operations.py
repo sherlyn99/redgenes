@@ -1,10 +1,11 @@
 import sqlite3
 
-def create_databases():
+def create_databases(db_file):
+    conn = sqlite3.connect(db_file)
+    cursor = conn.cursor()
+
     # Create software.db
-    software_conn = sqlite3.connect("software.db")
-    software_cursor = software_conn.cursor()
-    software_cursor.execute('''
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS software (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             software VARCHAR,
@@ -13,13 +14,8 @@ def create_databases():
             description VARCHAR
         )
     ''')
-    software_conn.commit()
-    software_conn.close()
 
-    # Create run.db
-    run_conn = sqlite3.connect("run.db")
-    run_cursor = run_conn.cursor()
-    run_cursor.execute('''
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS run (
             run_accession VARCHAR PRIMARY KEY,
             slurm_job_id VARCHAR,
@@ -28,11 +24,40 @@ def create_databases():
             FOREIGN KEY (software_id) REFERENCES software (id)
         )
     ''')
-    run_conn.commit()
-    run_conn.close()
 
-def insert_software(software_info):
-    conn = sqlite3.connect("software.db")
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS bakta (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename TEXT,
+            contig_id TEXT,
+            gene_id TEXT,
+            source TEXT,
+            type TEXT,
+            start INTEGER,
+            end INTEGER,
+            strand TEXT,
+            phase TEXT,
+            gene_name TEXT,
+            locus_tag TEXT,
+            product TEXT,
+            dbxref TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+def insert_bakta(db, bakta_info):
+    conn = sqlite3.connect(db)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO bakta (filename, contig_id, gene_id, source, type, start, end, strand, phase, gene_name, locus_tag, product, dbxref)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', bakta_info)
+    conn.commit()
+    conn.close()
+
+def insert_software(db, software_info):
+    conn = sqlite3.connect(db)
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO software (software, version, arguments, description)
@@ -41,8 +66,8 @@ def insert_software(software_info):
     conn.commit()
     conn.close()
 
-def insert_run(run_info):
-    conn = sqlite3.connect("run.db")
+def insert_run(db, run_info):
+    conn = sqlite3.connect(db)
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO run (run_accession, slurm_job_id, run_at, software_id)

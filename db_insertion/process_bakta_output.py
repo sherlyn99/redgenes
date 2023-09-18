@@ -1,31 +1,8 @@
 import sqlite3
 from BCBio import GFF
+from database_operations import insert_bakta
 
-def process_bakta_output(gff_file, db_file):
-    # Create an SQLite database connection
-    conn = sqlite3.connect(db_file)
-    cursor = conn.cursor()
-
-    # Define SQLite table schema
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS features (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            filename TEXT,
-            contig_id TEXT,
-            gene_id TEXT,
-            source TEXT,
-            type TEXT,
-            start INTEGER,
-            end INTEGER,
-            strand TEXT,
-            phase TEXT,
-            gene_name TEXT,
-            locus_tag TEXT,
-            product TEXT,
-            dbxref TEXT
-        )
-    ''')
-
+def parse_bakta(gff_file):
     # List of variable X values
     qualifier_keys = ["ID", "source", "Name", "locus_tag", "product", "Dbxref"]
 
@@ -46,20 +23,14 @@ def process_bakta_output(gff_file, db_file):
                         processed_value = value
                     processed_qualifiers[key] = processed_value
 
-                # Insert data into the SQLite table using processed qualifiers
-                cursor.execute('''
-                    INSERT INTO features (filename, contig_id, gene_id, source, type, start, end, strand, phase, gene_name, locus_tag, product, dbxref)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (gff_file, rec.id, processed_qualifiers.get("ID", None), processed_qualifiers.get("source", None), 
+                bakta_info = gff_file, rec.id, processed_qualifiers.get("ID", None), processed_qualifiers.get("source", None), 
                     feature.type, feature.location.start, feature.location.end, feature.location.strand, 
                     processed_qualifiers.get("phase", None), processed_qualifiers.get("Name", None),
                     processed_qualifiers.get("locus_tag", None), processed_qualifiers.get("product", None),
-                    processed_qualifiers.get("Dbxref", None)))
+                    processed_qualifiers.get("Dbxref", None)
 
-    # Commit the changes and close the database connection
-    conn.commit()
-    conn.close()
-
+                # insert each line into the bakta database 
+                insert_bakta(db, bakta_info)
 
 def delete_bakta_output_files(bakta_output):
     # Implement code to delete Bakta output files after processing
