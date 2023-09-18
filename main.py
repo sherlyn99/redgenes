@@ -25,20 +25,22 @@ def main(filename):
 
     # Step 5.1: Submit a Bakta job for the provided FASTA file
     # Returns filename, slurm job id, and the path to the bakta output 
-    job_info, bakta_out = submit_jobs.submit_bakta_job(filename)
+    #job_info, bakta_out = submit_jobs.submit_bakta_job(filename)
     # Returns end run time 
-    updated_job_info = submit_jobs.monitor_job_status(job_info)
+    #updated_job_info = submit_jobs.monitor_job_status(job_info)
+
+    bakta_out = "/Users/reneeoles/Desktop/bakta_plan/SRR20635833"
 
     # Step 5.2: Add bakta output to the bakta database 
-    bakta_output_file = f"{bakta_out}.gff"
+    bakta_output_file = f"{bakta_out}.gff3"
     process_bakta_output.process_bakta_output(db, bakta_output_file)
     process_bakta_output.delete_bakta_output_files(bakta_out)
 
     # TODO: need to parse software run information
     # TODO: there is a mix of lists and dictionaries here 
-    software_id = database_operations.insert_software(db, software)
-    job_info.append(software_id)
-    database_operations.insert_run(db, job_info)
+    # software_id = database_operations.insert_software(db, software)
+    # job_info.append(software_id)
+    # database_operations.insert_run(db, job_info)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Workflow")
