@@ -70,7 +70,7 @@ def insert_run(db, run_info):
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT INTO run (run_accession, slurm_job_id, run_at, software_id)
+        INSERT INTO run (filename, slurm_job_id, run_at, software_id)
         VALUES (?, ?, ?, ?)
     ''', run_info)
     conn.commit()
