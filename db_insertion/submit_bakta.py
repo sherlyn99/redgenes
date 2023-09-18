@@ -1,21 +1,22 @@
 import subprocess
+import os
 
-def submit_bakta_jobs(filename):
-    job_info = []
-    
+def submit_bakta_jobs(filename, bakta_db_dir, temp_dir):    
     # Replace with your Bakta submission command
-    cmd = ["sbatch", "bash/bakta.sh", filename]
+    cmd = ["sbatch", "bash/bakta.sh", filename, bakta_db_dir, temp_dir]
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
+    # Where should we store the bakta output? 
+    bakta_out = os.path.join(temp_dir, filename)
 
     if process.returncode == 0:
         slurm_job_id = stdout.decode().strip()
-        job_info.append({"filename": filename, "slurm_job_id": slurm_job_id})
+        job_info = [filename, slurm_job_id]
 
-    return job_info
+    return job_info,bakta_out
 
 def monitor_job_status(job_info):
-    job_id = job_info["job_id"]
+    job_id = job_info[1]
 
     while True:
         # Replace with the appropriate slurm command to check job status (e.g., sacct)
