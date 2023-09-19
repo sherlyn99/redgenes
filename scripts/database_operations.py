@@ -263,16 +263,53 @@ def insert_software_info(db, software_name, version, arguments, description):
         conn.close()
         return None
 
-def insert_bakta(db, bakta_info):
+def insert_bakta(cursor, entity_id, contig_id, gene_id, source, type, start, end, strand, phase, gene_name, locus_tag, product, dbxref, run_accession):
+    """
+    Insert data into the 'bakta' table.
+
+    Args:
+        cursor (sqlite3.Cursor): The SQLite cursor.
+        entity_id (str): The identifier for the entity associated with the Bakta output.
+        contig_id (str): Contig identifier.
+        gene_id (str): Gene identifier.
+        source (str): Source information.
+        type (str): Feature type.
+        start (int): Start position.
+        end (int): End position.
+        strand (str): Strand information.
+        phase (str): Phase information.
+        gene_name (str): Gene name.
+        locus_tag (str): Locus tag.
+        product (str): Product information.
+        dbxref (str): Database cross-reference information.
+        run_accession (int): The accession identifier for the run.
+
+    Returns:
+        None
+    """
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO bakta (
-            entity_id, contig_id, gene_id, source, type, start, end, strand, phase, gene_name, locus_tag, product, dbxref, run_accession)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''',bakta_info)
-    conn.commit()
-    conn.close()
+
+    try:
+        cursor.execute('''
+            INSERT INTO bakta (entity_id, contig_id, gene_id, source, type, start, end, strand, phase, gene_name, locus_tag, product, dbxref, run_accession)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (entity_id, contig_id, gene_id, source, type, start, end, strand, phase, gene_name, locus_tag, product, dbxref, run_accession))
+
+        # Get the auto-generated 'software_accession' value
+        software_accession = cursor.lastrowid
+
+        # Commit the transaction and close the connection
+        conn.commit()
+        conn.close()
+
+        return software_accession
+
+    except sqlite3.Error as e:
+        print("SQLite error:", e)
+        conn.rollback()
+        conn.close()
+        return None
 
 def insert_quast(db, quast_info):
     conn = sqlite3.connect(db)
