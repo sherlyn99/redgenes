@@ -1,6 +1,6 @@
 import sqlite3
 from BCBio import GFF
-from database_operations import insert_bakta
+from .database_operations import insert_bakta
 
 def parse_bakta(db, gff_file):
     # List of variable X values

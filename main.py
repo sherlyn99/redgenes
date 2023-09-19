@@ -1,17 +1,25 @@
-# main.py
+import argparse
+from test import Test
+from scripts.database_operations import *
+from scripts.process_bakta_output import *
+
 
 # make sure you can take fasta.gz as input as well 
-
-import argparse
-from db_creation import database_operations
-from db_insertion import submit_bakta, process_bakta_output
-
 # Should we initialize the main database file somewhere else? 
-db = ""
 
-def main(filename):
+def cli():
+    ap = argparse.ArgumentParser(description='Package version ', add_help=False)
+    # Required
+    apr = ap.add_argument_group('main arguments')
+    apr.add_argument('-f', '--fasta', help='Filename of fasta file',
+                     required=True, type=str)
+    apr.add_argument('-d', '--db', help='Filename of database',
+                     required=True, type=str)
+
+    master = Test(ap)
+
     # Step 1: Create or initialize the databases
-    database_operations.create_databases(db_file)
+    create_databases(master.db)
 
     # Step 2: Insert into main database 
 
@@ -33,8 +41,8 @@ def main(filename):
 
     # Step 5.2: Add bakta output to the bakta database 
     bakta_output_file = f"{bakta_out}.gff3"
-    process_bakta_output.process_bakta_output(db, bakta_output_file)
-    process_bakta_output.delete_bakta_output_files(bakta_out)
+    parse_bakta(master.db, bakta_output_file)
+    delete_bakta_output_files(bakta_out)
 
     # TODO: need to parse software run information
     # TODO: there is a mix of lists and dictionaries here 
@@ -42,9 +50,5 @@ def main(filename):
     # job_info.append(software_id)
     # database_operations.insert_run(db, job_info)
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Workflow")
-    parser.add_argument("fasta_file", help="Path to the FASTA file")    
-    
-    args = parser.parse_args()
-    main(args.filename)
+if __name__ == '__main__':
+    cli()
