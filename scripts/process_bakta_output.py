@@ -2,10 +2,14 @@ import sqlite3
 from BCBio import GFF
 from .database_operations import insert_bakta
 
-def parse_bakta(db, gff_file):
+def parse_bakta(db, entity_id, run_accession):
     # List of variable X values
     qualifier_keys = ["ID", "source", "Name", "locus_tag", "product", "Dbxref"]
 
+    # Get entity id from db based off file name 
+    # Get run_accesion from db based off entity id 
+    
+    gff_file = f"{entity_id}.gff3"
     # Parse the GFF3 file and insert data into the SQLite table
     with open(gff_file, 'r') as in_handle:
         for rec in GFF.parse(in_handle):
@@ -23,11 +27,11 @@ def parse_bakta(db, gff_file):
                         processed_value = value
                     processed_qualifiers[key] = processed_value
 
-                bakta_info = [gff_file, rec.id, processed_qualifiers.get("ID", None), processed_qualifiers.get("source", None), 
+                bakta_info = [entity_id, rec.id, processed_qualifiers.get("ID", None), processed_qualifiers.get("source", None), 
                 feature.type, feature.location.start, feature.location.end, feature.location.strand, 
                 processed_qualifiers.get("phase", None), processed_qualifiers.get("Name", None),
                 processed_qualifiers.get("locus_tag", None), processed_qualifiers.get("product", None),
-                processed_qualifiers.get("Dbxref", None)]
+                processed_qualifiers.get("Dbxref", None), run_accession]
 
                 # insert each line into the bakta database 
                 insert_bakta(db, bakta_info)

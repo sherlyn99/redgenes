@@ -1,25 +1,46 @@
 import subprocess
 import os
+import time  # Import the time module for time-related operations
 
-def submit_bakta_jobs(filename, bakta_db_dir, temp_dir):    
+def submit_bakta_jobs(filename, bakta_db_dir, temp_dir):
+    """
+    Submit a Bakta job to a cluster.
+
+    Args:
+        filename (str): The input file for Bakta.
+        bakta_db_dir (str): Directory where Bakta's database is located.
+        temp_dir (str): Temporary directory for job output.
+
+    Returns:
+        tuple: A tuple containing job information (filename and slurm_job_id) and the path to Bakta output (bakta_out).
+    """
     # Replace with your Bakta submission command
     cmd = ["sbatch", "bash/bakta.sh", filename, bakta_db_dir, temp_dir]
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
-    # Where should we store the bakta output? 
+    # Where should we store the Bakta output?
     bakta_out = os.path.join(temp_dir, filename)
 
     if process.returncode == 0:
         slurm_job_id = stdout.decode().strip()
-        job_info = [filename, slurm_job_id]
+        job_info = (filename, slurm_job_id)
 
-    return job_info,bakta_out
+    return job_info, bakta_out
 
 def monitor_job_status(job_info):
-    job_id = job_info[1]
+    """
+    Monitor the status of a submitted job using Slurm.
+
+    Args:
+        job_info (tuple): A tuple containing job information (filename and slurm_job_id).
+
+    Returns:
+        dict: A dictionary with job status and finish time if completed or failed.
+    """
+    filename, job_id = job_info
 
     while True:
-        # Replace with the appropriate slurm command to check job status (e.g., sacct)
+        # Replace with the appropriate Slurm command to check job status (e.g., sacct)
         status_command = f"sacct -j {job_id} --format=State --noheader --parsable2"
         try:
             status_output = subprocess.check_output(status_command, shell=True, stderr=subprocess.STDOUT, text=True)

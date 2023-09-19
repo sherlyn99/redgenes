@@ -146,34 +146,122 @@ def create_databases(db_file):
 
 
 # need to take into account that some fields are optional, therefore the length of identifier_info can vary
-def insert_identifier(db, identifier_info):
-    conn = sqlite3.connect(db)
-    cursor = conn.cursor()
-    cursor.execute('''
-        insert into identifier (filename, filepath) values (?, ?)
-    ''', identifier_info)
-    conn.commit()
-    conn.close()
+import sqlite3
 
-def insert_run(db, run_info):
-    conn = sqlite3.connect(db)
-    cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO run_info (slurm_job_id, software_accession, run_at)
-        VALUES (?, ?, ?)
-    ''', run_info)
-    conn.commit()
-    conn.close()
+def insert_identifier(db, filename, filepath, external_accession=None, external_source=None):
+    """
+    Insert a new record into the 'identifier' table.
 
-def insert_software(db, software_info):
+    Args:
+        db (str): Path to the SQLite database file.
+        filename (str): Name of the file.
+        filepath (str): Path to the file.
+        external_accession (str, optional): External accession identifier. Default is None.
+        external_source (str, optional): Source of the external accession. Default is None.
+
+    Returns:
+        int: The auto-generated 'entity_id' value for the inserted record.
+    """
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO software_info (software_name, version, arguments, description)
-        VALUES (?, ?, ?, ?)
-    ''', software_info)
-    conn.commit()
-    conn.close()
+
+    try:
+        # Insert into the table without specifying the auto-incremented 'entity_id'
+        cursor.execute('''
+            INSERT INTO identifier (filename, filepath, external_accession, external_source)
+            VALUES (?, ?, ?, ?)
+        ''', (filename, filepath, external_accession, external_source))
+
+        # Get the auto-generated 'entity_id' value
+        entity_id = cursor.lastrowid
+
+        # Commit the transaction and close the connection
+        conn.commit()
+        conn.close()
+
+        return entity_id
+
+    except sqlite3.Error as e:
+        print("SQLite error:", e)
+        conn.rollback()
+        conn.close()
+        return None
+
+def insert_run_info(db, slurm_job_id, software_accession):
+    """
+    Insert a new record into the 'run_info' table.
+
+    Args:
+        db (str): Path to the SQLite database file.
+        slurm_job_id (str): Slurm job ID.
+        software_accession (int): The corresponding software accession.
+
+    Returns:
+        int: The auto-generated 'run_accession' value for the inserted record.
+    """
+    conn = sqlite3.connect(db)
+    cursor = conn.cursor()
+
+    try:
+        # Insert into the table without specifying the auto-incremented 'run_accession'
+        cursor.execute('''
+            INSERT INTO run_info (slurm_job_id, software_accession) VALUES (?, ?)
+        ''', (slurm_job_id, software_accession))
+
+        # Get the auto-generated 'run_accession' value
+        run_accession = cursor.lastrowid
+
+        # Commit the transaction and close the connection
+        conn.commit()
+        conn.close()
+
+        return run_accession
+
+    except sqlite3.Error as e:
+        print("SQLite error:", e)
+        conn.rollback()
+        conn.close()
+        return None
+
+
+def insert_software_info(db, software_name, version, arguments, description):
+    """
+    Insert a new record into the 'software_info' table.
+
+    Args:
+        db (str): Path to the SQLite database file.
+        software_name (str): Name of the software.
+        version (str): Version of the software.
+        arguments (str): Arguments used for running the software.
+        description (str): Description of the software.
+
+    Returns:
+        int: The auto-generated 'software_accession' value for the inserted record.
+    """
+    conn = sqlite3.connect(db)
+    cursor = conn.cursor()
+
+    try:
+        # Insert into the table without specifying the auto-incremented 'software_accession'
+        cursor.execute('''
+            INSERT INTO software_info (software_name, version, arguments, description)
+            VALUES (?, ?, ?, ?)
+        ''', (software_name, version, arguments, description))
+
+        # Get the auto-generated 'software_accession' value
+        software_accession = cursor.lastrowid
+
+        # Commit the transaction and close the connection
+        conn.commit()
+        conn.close()
+
+        return software_accession
+
+    except sqlite3.Error as e:
+        print("SQLite error:", e)
+        conn.rollback()
+        conn.close()
+        return None
 
 def insert_bakta(db, bakta_info):
     conn = sqlite3.connect(db)
@@ -182,7 +270,7 @@ def insert_bakta(db, bakta_info):
         INSERT INTO bakta (
             entity_id, contig_id, gene_id, source, type, start, end, strand, phase, gene_name, locus_tag, product, dbxref, run_accession)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', bakta_info)
+    ''',bakta_info)
     conn.commit()
     conn.close()
 
@@ -198,7 +286,7 @@ def insert_quast(db, quast_info):
     conn.commit()
     conn.close()
 
-def insert_quast(db, md_info):
+def insert_md(db, md_info):
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
     cursor.execute('''

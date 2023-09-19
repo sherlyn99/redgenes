@@ -13,6 +13,8 @@ def cli():
     apr = ap.add_argument_group('main arguments')
     apr.add_argument('-f', '--fasta', help='Filename of fasta file',
                      required=True, type=str)
+    apr.add_argument('-p', '--path', help='File path of fasta file',
+                     required=True, type=str)
     apr.add_argument('-d', '--db', help='Filename of database',
                      required=True, type=str)
 
@@ -22,27 +24,30 @@ def cli():
     create_databases(master.db)
 
     # Step 2: Insert into main database 
+    # TODO: add external accession and external source 
+    entity_id = database_operations.insert_identifier(master.db, master.fasta, master.path)
 
     # Step 3: Load fasta metadata and insert 
 
     # Step 4.1: Run quast 
 
     # Step 4.2 and insert into db with run information
-#    database_operations.insert_software(software_info)
-#   database_operations.insert_run(run_info)
+    software_accession = database_operations.insert_software_info(master.db, software, version, arguments, description)
+    run_accession = database_operations.insert_run_info(master.db, slurm_job_id, software_accession)
+
 
     # Step 5.1: Submit a Bakta job for the provided FASTA file
+    # Temporarily change the file name to be the entity id and make sure that is the bakta output
     # Returns filename, slurm job id, and the path to the bakta output 
+
     #job_info, bakta_out = submit_jobs.submit_bakta_job(filename)
+
     # Returns end run time 
     #updated_job_info = submit_jobs.monitor_job_status(job_info)
 
-    bakta_out = "/Users/reneeoles/Desktop/bakta_plan/SRR20635833"
-
     # Step 5.2: Add bakta output to the bakta database 
-    bakta_output_file = f"{bakta_out}.gff3"
-    parse_bakta(master.db, bakta_output_file)
-    delete_bakta_output_files(bakta_out)
+    parse_bakta(master.db, entity_id, run_accession)
+    delete_bakta_output_files(entity_id)
 
     # TODO: need to parse software run information
     # TODO: there is a mix of lists and dictionaries here 
