@@ -2,30 +2,26 @@ import subprocess
 import os
 import time  # Import the time module for time-related operations
 
-def submit_bakta_jobs(filename, bakta_db_dir, temp_dir):
+def submit_bakta_jobs(entity_id, temp_dir, bakta_db):
     """
     Submit a Bakta job to a cluster.
 
     Args:
         filename (str): The input file for Bakta.
-        bakta_db_dir (str): Directory where Bakta's database is located.
-        temp_dir (str): Temporary directory for job output.
+        bakta_db (str): The path to the Bakta database.
 
     Returns:
-        tuple: A tuple containing job information (filename and slurm_job_id) and the path to Bakta output (bakta_out).
+        str: The Slurm job ID for the submitted Bakta job.
     """
     # Replace with your Bakta submission command
-    cmd = ["sbatch", "bash/bakta.sh", filename, bakta_db_dir, temp_dir]
+    cmd = ["sbatch", "bash/bakta.sh", entity_id, temp_dir, bakta_db]
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
-    # Where should we store the Bakta output?
-    bakta_out = os.path.join(temp_dir, filename)
 
     if process.returncode == 0:
         slurm_job_id = stdout.decode().strip()
-        job_info = (filename, slurm_job_id)
 
-    return job_info, bakta_out
+    return slurm_job_id
 
 def monitor_job_status(job_info):
     """
