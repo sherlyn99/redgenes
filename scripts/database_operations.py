@@ -144,13 +144,9 @@ def create_databases(db_file):
     conn.commit()
     conn.close()
 
-
-# need to take into account that some fields are optional, therefore the length of identifier_info can vary
-import sqlite3
-
 def insert_identifier(db, filename, filepath, external_accession=None, external_source=None):
     """
-    Insert a new record into the 'identifier' table.
+    Insert a new record into the 'identifier' table or retrieve the existing entity_id.
 
     Args:
         db (str): Path to the SQLite database file.
@@ -160,26 +156,38 @@ def insert_identifier(db, filename, filepath, external_accession=None, external_
         external_source (str, optional): Source of the external accession. Default is None.
 
     Returns:
-        int: The auto-generated 'entity_id' value for the inserted record.
+        int: The 'entity_id' value for the inserted or existing record.
     """
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
 
     try:
-        # Insert into the table without specifying the auto-incremented 'entity_id'
+        # Check if a record with the same filename and filepath already exists
         cursor.execute('''
-            INSERT INTO identifier (filename, filepath, external_accession, external_source)
-            VALUES (?, ?, ?, ?)
-        ''', (filename, filepath, external_accession, external_source))
+            SELECT entity_id FROM identifier
+            WHERE filename = ? AND filepath = ?
+        ''', (filename, filepath))
 
-        # Get the auto-generated 'entity_id' value
-        entity_id = cursor.lastrowid
+        existing_entity_id = cursor.fetchone()
 
-        # Commit the transaction and close the connection
-        conn.commit()
-        conn.close()
+        if existing_entity_id:
+            # If a record already exists, return the existing entity_id
+            conn.close()
+            return existing_entity_id[0]
+        else:
+            # Insert a new record and return the auto-generated entity_id
+            cursor.execute('''
+                INSERT INTO identifier (filename, filepath, external_accession, external_source)
+                VALUES (?, ?, ?, ?)
+            ''', (filename, filepath, external_accession, external_source))
 
-        return entity_id
+            entity_id = cursor.lastrowid
+
+            # Commit the transaction and close the connection
+            conn.commit()
+            conn.close()
+
+            return entity_id
 
     except sqlite3.Error as e:
         print("SQLite error:", e)
@@ -223,10 +231,9 @@ def insert_run_info(db, slurm_job_id, software_accession):
         conn.close()
         return None
 
-
 def insert_software_info(db, software_name, version, arguments, description):
     """
-    Insert a new record into the 'software_info' table.
+    Insert a new record into the 'software_info' table or retrieve the existing software_accession.
 
     Args:
         db (str): Path to the SQLite database file.
@@ -236,32 +243,45 @@ def insert_software_info(db, software_name, version, arguments, description):
         description (str): Description of the software.
 
     Returns:
-        int: The auto-generated 'software_accession' value for the inserted record.
+        int: The 'software_accession' value for the inserted or existing record.
     """
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
 
     try:
-        # Insert into the table without specifying the auto-incremented 'software_accession'
+        # Check if a record with the same software_name, version, and arguments already exists
         cursor.execute('''
-            INSERT INTO software_info (software_name, version, arguments, description)
-            VALUES (?, ?, ?, ?)
-        ''', (software_name, version, arguments, description))
+            SELECT software_accession FROM software_info
+            WHERE software_name = ? AND version = ? AND arguments = ?
+        ''', (software_name, version, arguments))
 
-        # Get the auto-generated 'software_accession' value
-        software_accession = cursor.lastrowid
+        existing_software_accession = cursor.fetchone()
 
-        # Commit the transaction and close the connection
-        conn.commit()
-        conn.close()
+        if existing_software_accession:
+            # If a record already exists, return the existing software_accession
+            conn.close()
+            return existing_software_accession[0]
+        else:
+            # Insert a new record and return the auto-generated software_accession
+            cursor.execute('''
+                INSERT INTO software_info (software_name, version, arguments, description)
+                VALUES (?, ?, ?, ?)
+            ''', (software_name, version, arguments, description))
 
-        return software_accession
+            software_accession = cursor.lastrowid
+
+            # Commit the transaction and close the connection
+            conn.commit()
+            conn.close()
+
+            return software_accession
 
     except sqlite3.Error as e:
         print("SQLite error:", e)
         conn.rollback()
         conn.close()
         return None
+
 
 def insert_bakta(cursor, entity_id, contig_id, gene_id, source, type, start, end, strand, phase, gene_name, locus_tag, product, dbxref, run_accession):
     """

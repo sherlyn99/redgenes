@@ -1,10 +1,17 @@
-#!/bin/bash
+#!/bin/bash -l
+
+#SBATCH --nodes=1
+#SBATCH --time=2:00:00
+#SBATCH --mem=50G
+#SBATCH --mail-type=END,FAIL
+#SBATCH --mail-user=roles@ucsd.edu
 
 file="${1}"
 temp_dir="${2}"
 bakta_db="${3}"
 
-conda activate envs/bakta
+source /home/roles/anaconda3/bin/deactivate
+conda activate bakta
 
 bakta --skip-plot --db "${bakta_db}" --output "${temp_dir}" --prefix "${file}" "${temp_dir}/${file}"
 
