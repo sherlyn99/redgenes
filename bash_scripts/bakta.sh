@@ -13,7 +13,7 @@ bakta_db="${3}"
 source /home/roles/anaconda3/bin/deactivate
 conda activate bakta
 
-bakta --skip-plot --db "${bakta_db}" --output "${temp_dir}" --prefix "${file}" "${temp_dir}/${file}"
+bakta --skip-plot --keep-contig-headers --db "${bakta_db}" --output "${temp_dir}" --prefix "${file}" "${temp_dir}/${file}" 
 
 # What arguments do I need to write here? 
 

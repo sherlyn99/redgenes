@@ -39,7 +39,6 @@ def monitor_job_status(job_id):
     while True:
         # Replace with the appropriate Slurm command to check job status (e.g., sacct)
         status_command = f"sacct -j {job_id} --format=State --noheader --parsable2"
-        print(status_command)
         try:
             status_output = subprocess.check_output(status_command, shell=True, stderr=subprocess.STDOUT, text=True)
             job_status = status_output.strip().split('\n')[-1]  # Get the latest status

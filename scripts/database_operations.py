@@ -61,10 +61,14 @@ def create_databases(db_file):
             end integer,
             strand varchar,
             phase varchar,
-            gene_name varchar,
-            locus_tag varchar,
+            name varchar,
             product varchar,
-            dbxref varchar,
+            RefSeq varchar,
+            SO varchar,
+            UniParc varchar,
+            Uniref varchar,
+            KEGG varchar,
+            PFAM varchar,
             run_accession integer,
             created_at timestamp default current_timestamp,
             foreign key (run_accession) references run_info (run_accession),
@@ -283,7 +287,7 @@ def insert_software_info(db, software_name, version, arguments, description):
         return None
 
 
-def insert_bakta(cursor, entity_id, contig_id, gene_id, source, type, start, end, strand, phase, gene_name, locus_tag, product, dbxref, run_accession):
+def insert_bakta(db, entity_id, contig_id, gene_id, source, type, start, end, strand, phase, name, product, refseq, so, uniparc, uniref, kegg, pfam, run_accession):
     """
     Insert data into the 'bakta' table.
 
@@ -298,10 +302,9 @@ def insert_bakta(cursor, entity_id, contig_id, gene_id, source, type, start, end
         end (int): End position.
         strand (str): Strand information.
         phase (str): Phase information.
-        gene_name (str): Gene name.
-        locus_tag (str): Locus tag.
+        name (str): Gene description.
         product (str): Product information.
-        dbxref (str): Database cross-reference information.
+        dbxref (dict): Dictionary of database cross-reference information.
         run_accession (int): The accession identifier for the run.
 
     Returns:
@@ -312,18 +315,13 @@ def insert_bakta(cursor, entity_id, contig_id, gene_id, source, type, start, end
 
     try:
         cursor.execute('''
-            INSERT INTO bakta (entity_id, contig_id, gene_id, source, type, start, end, strand, phase, gene_name, locus_tag, product, dbxref, run_accession)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (entity_id, contig_id, gene_id, source, type, start, end, strand, phase, gene_name, locus_tag, product, dbxref, run_accession))
-
-        # Get the auto-generated 'software_accession' value
-        software_accession = cursor.lastrowid
-
-        # Commit the transaction and close the connection
+            INSERT INTO bakta (entity_id, contig_id, gene_id, source, type, start, end, strand, phase, name, product, RefSeq, SO, UniParc, Uniref, KEGG, PFAM, run_accession)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (entity_id, contig_id, gene_id, source, type, start, end, strand, phase, name, product, refseq, so, uniparc, uniref, kegg, pfam, run_accession))
         conn.commit()
         conn.close()
 
-        return software_accession
+        return 0
 
     except sqlite3.Error as e:
         print("SQLite error:", e)

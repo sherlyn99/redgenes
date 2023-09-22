@@ -6,6 +6,7 @@ from test import Test
 from scripts.database_operations import *
 from scripts.process_bakta_output import *
 from scripts.submit_bakta import submit_bakta_job, monitor_job_status
+from print.print import print_identifier, print_run_info, print_software_info, print_bakta
 
 # Define default quast values
 quast_software = "Default Software"
@@ -39,8 +40,9 @@ def copy_fasta_to_temporary_folder(fasta, fasta_path, temp_path, entity_id):
         return None
 
 def run_quast(db, entity_id):
-    software_accession = insert_software_info(db, quast_software, quast_version, quast_arguments, quast_description)
-    run_accession = insert_run_info(db, entity_id, software_accession)
+#    software_accession = insert_software_info(db, quast_software, quast_version, quast_arguments, quast_description)
+#    run_accession = insert_run_info(db, slurm_job_id, software_accession)
+    run_accession = 0
 
     # Run quast
     # Implement quast execution here
@@ -55,7 +57,7 @@ def run_bakta(db, entity_id, temp_dir):
         raise Exception("Bakta job failed. Check the Slurm job logs for details.")
 
     software_accession = insert_software_info(db, bakta_software, bakta_version, bakta_arguments, bakta_description)
-    run_accession = insert_run_info(db, entity_id, software_accession)
+    run_accession = insert_run_info(db, slurm_job_id, software_accession)
 
     return run_accession
 
@@ -68,7 +70,6 @@ def cli():
                      required=True, type=str)
     apr.add_argument('-d', '--db', help='Filename of database',
                      required=True, type=str)
-
     master = Test(ap)
 
     # Step 1: Create or initialize the databases
@@ -80,15 +81,17 @@ def cli():
     # Step 3: Load fasta metadata and insert
 
     # Step 4: Run quast and insert into db with run information
-    quast_run_accession = run_quast(master.db, str(entity_id))
+    #quast_run_accession = run_quast(master.db, str(entity_id))
 
     # Step 5: Submit a Bakta job for the provided FASTA file
-    temp_dir = copy_fasta_to_temporary_folder(master.fasta, master.path, temp_path, str(entity_id))
-    bakta_run_accession = run_bakta(master.db, str(entity_id), temp_dir)
+    #temp_dir = copy_fasta_to_temporary_folder(master.fasta, master.path, temp_path, str(entity_id))
+    #bakta_run_accession = run_bakta(master.db, str(entity_id), temp_dir)
+    bakta_run_accession = "3"
+    temp_dir = temp_path
 
     # Step 6: Add bakta output to the bakta database
     parse_bakta(master.db, str(entity_id), temp_dir, bakta_run_accession)
-    delete_bakta_output_files(str(entity_id), temp_dir)
+    #delete_bakta_output_files(str(entity_id), temp_dir)
 
 if __name__ == '__main__':
     cli()
