@@ -13,6 +13,9 @@ import pkg_resources
 import re
 from Bio import SeqIO
 import gzip
+import sqlite3
+import argparse
+
 
 class Test(object):
     """
@@ -56,10 +59,36 @@ class Test(object):
         Raises
         ------
         Exception
-            'Exception: Database  not found'
+            'Exception: Database not found'
 
         ValueError
-            'ValueError: Database not a valid database'
+            'ValueError: Database not a valid database. Valid db name ends with .db'
         """
         logging.debug('Checking database')
-        # Check database is real
+
+        # Check database has been established
+        if len(self.db) < 3 or self.db[-3:] != ".db":
+            logging.error('Database not a valid database. Valid db name ends with .db')
+            raise ValueError('Database not a valid database. Valid db name ends with .db')
+            sys.exit()
+
+        # Check database has been established
+        if not os.path.exists(self.db):
+            logging.error('Database not found')
+            raise Exception('Database not found')
+            sys.exit()
+
+        # Check if all expected tables have been created
+        expected_tables = [
+            'bakta', 'metadata', 'run_info',
+            'identifier','quast','software_info']
+        conn = sqlite3.connect(self.db)
+        cursor = conn.cursor()
+        cursor.execute("select name from sqlite_master where type = 'table'")
+        actual_tables = [row[0] for row in cursor.fetchall()]
+
+        for table in expected_tables:
+            assert table in actual_tables, f'Table {table} not found in the database.'
+
+        conn.close()
+        return
