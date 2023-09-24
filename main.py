@@ -1,7 +1,18 @@
 import argparse
+import tempfile
+import shutil
+import os
 from test import Test
 from scripts.database_operations import *
 from scripts.process_bakta_output import *
+from scripts.submit_bakta import submit_bakta_job, monitor_job_status
+from print.print import print_identifier, print_run_info, print_software_info, print_bakta
+
+# Define default quast values
+quast_software = "Default Software"
+quast_version = "1.0"
+quast_arguments = "--default-args"
+quast_description = "Default Description"
 
 
 # 1. make sure you can take fasta.gz as input as well 
@@ -14,48 +25,84 @@ from scripts.process_bakta_output import *
 # db will be re-initialized, losing all contents. We should probably find a way
 # to avoid this. 
 
+# Define default bakta values
+bakta_software = "Default Software"
+bakta_version = "1.0"
+bakta_arguments = "--default-args"
+bakta_description = "Default Description"
+temp_path = "/panfs/roles/temp"
+bakta_db = "/panfs/roles/Panpiper/panpiper/databases/bakta/db"
+
+def copy_fasta_to_temporary_folder(fasta, fasta_path, temp_path, entity_id):
+    try:
+        # Construct the destination path by joining the temporary directory with the entity name
+        destination_path = os.path.join(temp_path, entity_id)
+        fasta_path = os.path.join(fasta_path, fasta)
+
+        # Copy the fasta file to the temporary folder and rename it
+        shutil.copy(fasta_path, destination_path)
+
+        # Return the path to the copied and renamed file
+        return temp_path
+
+    except Exception as e:
+        # Raise an exception and stop the code execution
+        raise Exception(f"Error: {e}")
+        return None
+
+def run_quast(db, entity_id):
+#    software_accession = insert_software_info(db, quast_software, quast_version, quast_arguments, quast_description)
+#    run_accession = insert_run_info(db, slurm_job_id, software_accession)
+    run_accession = 0
+
+    # Run quast
+    # Implement quast execution here
+
+    return run_accession
+
+def run_bakta(db, entity_id, temp_dir):
+    slurm_job_id = submit_bakta_job(entity_id, temp_dir, bakta_db)
+    job_info = monitor_job_status(slurm_job_id)
+
+    if job_info["status"] == "Failed":
+        raise Exception("Bakta job failed. Check the Slurm job logs for details.")
+
+    software_accession = insert_software_info(db, bakta_software, bakta_version, bakta_arguments, bakta_description)
+    run_accession = insert_run_info(db, slurm_job_id, software_accession)
+
+    return run_accession
+
 def cli():
-    ap = argparse.ArgumentParser(description='Package version ', add_help=True)
-    # Required
+    ap = argparse.ArgumentParser(description='Package version ', add_help=False)
     apr = ap.add_argument_group('main arguments')
     apr.add_argument('-f', '--fasta', help='Filename of fasta file',
                      required=True, type=str)
+    apr.add_argument('-p', '--path', help='File path of fasta file',
+                     required=True, type=str)
     apr.add_argument('-d', '--db', help='Filename of database',
                      required=True, type=str)
-
     master = Test(ap)
 
     # Step 1: Create or initialize the databases
     create_databases(master.db)
 
     # Step 2: Insert into main database
+    entity_id = insert_identifier(master.db, master.fasta, master.path)
 
-    # Step 3: Load fasta metadata and insert 
+    # Step 3: Load fasta metadata and insert
 
-    # Step 4.1: Run quast 
+    # Step 4: Run quast and insert into db with run information
+    #quast_run_accession = run_quast(master.db, str(entity_id))
 
-    # Step 4.2 and insert into db with run information
-#    database_operations.insert_software(software_info)
-#   database_operations.insert_run(run_info)
+    # Step 5: Submit a Bakta job for the provided FASTA file
+    #temp_dir = copy_fasta_to_temporary_folder(master.fasta, master.path, temp_path, str(entity_id))
+    #bakta_run_accession = run_bakta(master.db, str(entity_id), temp_dir)
+    bakta_run_accession = "3"
+    temp_dir = temp_path
 
-    # Step 5.1: Submit a Bakta job for the provided FASTA file
-    # Returns filename, slurm job id, and the path to the bakta output 
-    #job_info, bakta_out = submit_jobs.submit_bakta_job(filename)
-    # Returns end run time 
-    #updated_job_info = submit_jobs.monitor_job_status(job_info)
-
-    bakta_out = "/Users/reneeoles/Desktop/bakta_plan/SRR20635833"
-
-    # Step 5.2: Add bakta output to the bakta database 
-    bakta_output_file = f"{bakta_out}.gff3"
-    parse_bakta(master.db, bakta_output_file)
-    delete_bakta_output_files(bakta_out)
-
-    # TODO: need to parse software run information
-    # TODO: there is a mix of lists and dictionaries here 
-    # software_id = database_operations.insert_software(db, software)
-    # job_info.append(software_id)
-    # database_operations.insert_run(db, job_info)
+    # Step 6: Add bakta output to the bakta database
+    parse_bakta(master.db, str(entity_id), temp_dir, bakta_run_accession)
+    #delete_bakta_output_files(str(entity_id), temp_dir)
 
 if __name__ == '__main__':
     cli()

@@ -61,10 +61,14 @@ def create_databases(db_file):
             end integer,
             strand varchar,
             phase varchar,
-            gene_name varchar,
-            locus_tag varchar,
+            name varchar,
             product varchar,
-            dbxref varchar,
+            RefSeq varchar,
+            SO varchar,
+            UniParc varchar,
+            Uniref varchar,
+            KEGG varchar,
+            PFAM varchar,
             run_accession integer,
             created_at timestamp default current_timestamp,
             foreign key (run_accession) references run_info (run_accession),
@@ -144,47 +148,186 @@ def create_databases(db_file):
     conn.commit()
     conn.close()
 
+def insert_identifier(db, filename, filepath, external_accession=None, external_source=None):
+    """
+    Insert a new record into the 'identifier' table or retrieve the existing entity_id.
 
-# need to take into account that some fields are optional, therefore the length of identifier_info can vary
-def insert_identifier(db, identifier_info):
+    Args:
+        db (str): Path to the SQLite database file.
+        filename (str): Name of the file.
+        filepath (str): Path to the file.
+        external_accession (str, optional): External accession identifier. Default is None.
+        external_source (str, optional): Source of the external accession. Default is None.
+
+    Returns:
+        int: The 'entity_id' value for the inserted or existing record.
+    """
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
-    cursor.execute('''
-        insert into identifier (filename, filepath) values (?, ?)
-    ''', identifier_info)
-    conn.commit()
-    conn.close()
 
-def insert_run(db, run_info):
+    try:
+        # Check if a record with the same filename and filepath already exists
+        cursor.execute('''
+            SELECT entity_id FROM identifier
+            WHERE filename = ? AND filepath = ?
+        ''', (filename, filepath))
+
+        existing_entity_id = cursor.fetchone()
+
+        if existing_entity_id:
+            # If a record already exists, return the existing entity_id
+            conn.close()
+            return existing_entity_id[0]
+        else:
+            # Insert a new record and return the auto-generated entity_id
+            cursor.execute('''
+                INSERT INTO identifier (filename, filepath, external_accession, external_source)
+                VALUES (?, ?, ?, ?)
+            ''', (filename, filepath, external_accession, external_source))
+
+            entity_id = cursor.lastrowid
+
+            # Commit the transaction and close the connection
+            conn.commit()
+            conn.close()
+
+            return entity_id
+
+    except sqlite3.Error as e:
+        print("SQLite error:", e)
+        conn.rollback()
+        conn.close()
+        return None
+
+def insert_run_info(db, slurm_job_id, software_accession):
+    """
+    Insert a new record into the 'run_info' table.
+
+    Args:
+        db (str): Path to the SQLite database file.
+        slurm_job_id (str): Slurm job ID.
+        software_accession (int): The corresponding software accession.
+
+    Returns:
+        int: The auto-generated 'run_accession' value for the inserted record.
+    """
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO run_info (slurm_job_id, software_accession, run_at)
-        VALUES (?, ?, ?)
-    ''', run_info)
-    conn.commit()
-    conn.close()
 
-def insert_software(db, software_info):
+    try:
+        # Insert into the table without specifying the auto-incremented 'run_accession'
+        cursor.execute('''
+            INSERT INTO run_info (slurm_job_id, software_accession) VALUES (?, ?)
+        ''', (slurm_job_id, software_accession))
+
+        # Get the auto-generated 'run_accession' value
+        run_accession = cursor.lastrowid
+
+        # Commit the transaction and close the connection
+        conn.commit()
+        conn.close()
+
+        return run_accession
+
+    except sqlite3.Error as e:
+        print("SQLite error:", e)
+        conn.rollback()
+        conn.close()
+        return None
+
+def insert_software_info(db, software_name, version, arguments, description):
+    """
+    Insert a new record into the 'software_info' table or retrieve the existing software_accession.
+
+    Args:
+        db (str): Path to the SQLite database file.
+        software_name (str): Name of the software.
+        version (str): Version of the software.
+        arguments (str): Arguments used for running the software.
+        description (str): Description of the software.
+
+    Returns:
+        int: The 'software_accession' value for the inserted or existing record.
+    """
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO software_info (software_name, version, arguments, description)
-        VALUES (?, ?, ?, ?)
-    ''', software_info)
-    conn.commit()
-    conn.close()
 
-def insert_bakta(db, bakta_info):
+    try:
+        # Check if a record with the same software_name, version, and arguments already exists
+        cursor.execute('''
+            SELECT software_accession FROM software_info
+            WHERE software_name = ? AND version = ? AND arguments = ?
+        ''', (software_name, version, arguments))
+
+        existing_software_accession = cursor.fetchone()
+
+        if existing_software_accession:
+            # If a record already exists, return the existing software_accession
+            conn.close()
+            return existing_software_accession[0]
+        else:
+            # Insert a new record and return the auto-generated software_accession
+            cursor.execute('''
+                INSERT INTO software_info (software_name, version, arguments, description)
+                VALUES (?, ?, ?, ?)
+            ''', (software_name, version, arguments, description))
+
+            software_accession = cursor.lastrowid
+
+            # Commit the transaction and close the connection
+            conn.commit()
+            conn.close()
+
+            return software_accession
+
+    except sqlite3.Error as e:
+        print("SQLite error:", e)
+        conn.rollback()
+        conn.close()
+        return None
+
+
+def insert_bakta(db, entity_id, contig_id, gene_id, source, type, start, end, strand, phase, name, product, refseq, so, uniparc, uniref, kegg, pfam, run_accession):
+    """
+    Insert data into the 'bakta' table.
+
+    Args:
+        cursor (sqlite3.Cursor): The SQLite cursor.
+        entity_id (str): The identifier for the entity associated with the Bakta output.
+        contig_id (str): Contig identifier.
+        gene_id (str): Gene identifier.
+        source (str): Source information.
+        type (str): Feature type.
+        start (int): Start position.
+        end (int): End position.
+        strand (str): Strand information.
+        phase (str): Phase information.
+        name (str): Gene description.
+        product (str): Product information.
+        dbxref (dict): Dictionary of database cross-reference information.
+        run_accession (int): The accession identifier for the run.
+
+    Returns:
+        None
+    """
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO bakta (
-            entity_id, contig_id, gene_id, source, type, start, end, strand, phase, gene_name, locus_tag, product, dbxref, run_accession)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', bakta_info)
-    conn.commit()
-    conn.close()
+
+    try:
+        cursor.execute('''
+            INSERT INTO bakta (entity_id, contig_id, gene_id, source, type, start, end, strand, phase, name, product, RefSeq, SO, UniParc, Uniref, KEGG, PFAM, run_accession)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (entity_id, contig_id, gene_id, source, type, start, end, strand, phase, name, product, refseq, so, uniparc, uniref, kegg, pfam, run_accession))
+        conn.commit()
+        conn.close()
+
+        return 0
+
+    except sqlite3.Error as e:
+        print("SQLite error:", e)
+        conn.rollback()
+        conn.close()
+        return None
 
 def insert_quast(db, quast_info):
     conn = sqlite3.connect(db)
@@ -198,7 +341,7 @@ def insert_quast(db, quast_info):
     conn.commit()
     conn.close()
 
-def insert_quast(db, md_info):
+def insert_md(db, md_info):
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
     cursor.execute('''
