@@ -32,7 +32,7 @@ def extract_gene_sequence_to_fasta(db_file, gene_name, column, output_file_path)
         for record in SeqIO.parse(fasta_file_path, "fasta"):
             if record.id == contig_id:
                 if strand == "1":
-                    gene_sequence = record.seq[start:end]  # Adjust for 0-based indexing
+                    gene_sequence = record.seq[start:end]
                 elif strand == "-1":
                     print("negative", gene_id)
                     gene_sequence = record.seq[start:end]
