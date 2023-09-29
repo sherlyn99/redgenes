@@ -80,7 +80,9 @@ def cli():
     apr.add_argument('-p', '--path', help='File path of fasta file',
                      required=True, type=str)
     apr.add_argument('-d', '--db', help='Filename of database',
-                     required=True, type=str)
+                     required=True, type=str), 
+    apr.add_argument('-m', '--md', help='Path to the metadata',
+                    required=True, type=str)
     master = Test(ap)
 
     # Step 1: Create or initialize the databases
@@ -90,6 +92,7 @@ def cli():
     entity_id = insert_identifier(master.db, master.fasta, master.path)
 
     # Step 3: Load fasta metadata and insert
+    insert_md(master.db, entity_id, master.md)
 
     # Step 4: Run quast and insert into db with run information
     #quast_run_accession = run_quast(master.db, str(entity_id))

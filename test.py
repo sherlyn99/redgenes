@@ -13,9 +13,6 @@ import pkg_resources
 import re
 from Bio import SeqIO
 import gzip
-import sqlite3
-import argparse
-
 
 class Test(object):
     """
