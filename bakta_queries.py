@@ -69,8 +69,17 @@ def extract_gene_sequence_to_fasta(db_file, gene_name, column, output_file_path)
     for result in gene_info:
         contig_id, start, end, strand, entity_id, gene_id, fasta_filename, fasta_filepath = result
         fasta_file_path = os.path.join(fasta_filepath, fasta_filename)
-        gene_sequence = extract_gene_sequence_from_fasta(fasta_file_path, contig_id, start, end, strand)
-
+        gene_sequence = ""
+        for record in SeqIO.parse(fasta_file_path, "fasta"):
+            if record.id == contig_id:
+                if strand == "1":
+                    gene_sequence = record.seq[start:end]
+                elif strand == "-1":
+                    print("negative", gene_id)
+                    gene_sequence = record.seq[start:end]
+                    gene_sequence = gene_sequence.reverse_complement()
+                    print(gene_sequence)
+                break
         all_gene_sequences += f">{fasta_filename}_{contig_id}_{gene_id}_{strand}\n{str(gene_sequence)}\n"
 
     write_gene_sequences_to_fasta(output_file_path, all_gene_sequences)

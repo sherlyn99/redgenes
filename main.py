@@ -14,6 +14,17 @@ quast_version = "1.0"
 quast_arguments = "--default-args"
 quast_description = "Default Description"
 
+
+# 1. make sure you can take fasta.gz as input as well 
+# 2. Should we initialize the main database file somewhere else? Yes, eventually we 
+# can initialize it on /projects/greengenes2/gg2.db 
+# 3. In the db generation, the argument should be name of database, and we append
+# ".db" automatically. Then get rid of the corresponding suffix check in 
+# check_db() in test.py
+# 4. note that if we run python main.py -f <fasta_file> -d db.db twice the first 
+# db will be re-initialized, losing all contents. We should probably find a way
+# to avoid this. 
+
 # Define default bakta values
 bakta_software = "Default Software"
 bakta_version = "1.0"
@@ -69,7 +80,9 @@ def cli():
     apr.add_argument('-p', '--path', help='File path of fasta file',
                      required=True, type=str)
     apr.add_argument('-d', '--db', help='Filename of database',
-                     required=True, type=str)
+                     required=True, type=str), 
+    apr.add_argument('-m', '--md', help='Path to the metadata',
+                    required=True, type=str)
     master = Test(ap)
 
     # Step 1: Create or initialize the databases
@@ -79,6 +92,7 @@ def cli():
     entity_id = insert_identifier(master.db, master.fasta, master.path)
 
     # Step 3: Load fasta metadata and insert
+    insert_md(master.db, entity_id, master.md)
 
     # Step 4: Run quast and insert into db with run information
     #quast_run_accession = run_quast(master.db, str(entity_id))
