@@ -2,15 +2,30 @@ import sqlite3
 from Bio import SeqIO
 import os
 
-def extract_gene_sequence_to_fasta(db_file, gene_name, column, output_file_path):
-    # Connect to the SQLite database
-    conn = sqlite3.connect(db_file)
+def connect_to_database(db_connection):
+    """
+    Connect to the SQLite database and return the connection and cursor objects.
+    """
+    if isinstance(db_connection, str):
+        conn = sqlite3.connect(db_connection)
+    elif isinstance(db_connection, sqlite3.Connection):
+        conn = db_connection
+    else:
+        raise TypeError("db_connection must be a file path (str) or a sqlite3.Connection object.")
+    
     cursor = conn.cursor()
+    return conn, cursor
+    
+def close_database_connection(conn):
+    """
+    Close the SQLite database connection.
+    """
+    conn.close()
 
-    # Initialize a variable to accumulate gene sequences
-    all_gene_sequences = ""
-
-    # Step 1: Search for the gene by name and retrieve contig_id, start, end, strand, entity_id, gene_id
+def get_gene_info_by_name(cursor, gene_name, column):
+    """
+    Retrieve gene information from the database based on the gene name.
+    """
     query = f"""
         SELECT b.contig_id, b.start, b.end, b.strand, b.entity_id, b.gene_id, i.filename, i.filepath
         FROM bakta AS b
@@ -18,16 +33,42 @@ def extract_gene_sequence_to_fasta(db_file, gene_name, column, output_file_path)
         WHERE b.{column} = ?
     """
     cursor.execute(query, (gene_name,))
-    results = cursor.fetchall()
+    return cursor.fetchall()
 
-    for result in results:
+def extract_gene_sequence_from_fasta(fasta_file_path, contig_id, start, end, strand):
+    """
+    Extract the gene sequence from a FASTA file based on coordinates and strand.
+    """
+    gene_sequence = ""
+    for record in SeqIO.parse(fasta_file_path, "fasta"):
+        if record.id == contig_id:
+            if strand == "1":
+                gene_sequence = record.seq[start:end]  # Adjust for 0-based indexing
+            elif strand == "-1":
+                gene_sequence = record.seq[start:end].reverse_complement()
+            break
+    return gene_sequence
+
+def write_gene_sequences_to_fasta(output_file_path, gene_sequences):
+    """
+    Write gene sequences to an output FASTA file.
+    """
+    with open(output_file_path, "w") as output_file:
+        output_file.write(gene_sequences)
+
+def extract_gene_sequence_to_fasta(db_file, gene_name, column, output_file_path):
+    """
+    Extract gene sequences based on gene name and write them to an output FASTA file.
+    """
+    conn, cursor = connect_to_database(db_file)
+
+    all_gene_sequences = ""
+
+    gene_info = get_gene_info_by_name(cursor, gene_name, column)
+
+    for result in gene_info:
         contig_id, start, end, strand, entity_id, gene_id, fasta_filename, fasta_filepath = result
-        fasta_filepath = ""
-
-        # Step 2: Query the "identifier" table to get the fasta file name and path
         fasta_file_path = os.path.join(fasta_filepath, fasta_filename)
-
-        # Step 3: Read the FASTA file and extract the gene sequence based on coordinates and reading frame
         gene_sequence = ""
         for record in SeqIO.parse(fasta_file_path, "fasta"):
             if record.id == contig_id:
@@ -39,19 +80,16 @@ def extract_gene_sequence_to_fasta(db_file, gene_name, column, output_file_path)
                     gene_sequence = gene_sequence.reverse_complement()
                     print(gene_sequence)
                 break
-
-        # Append the gene sequence to the accumulator
         all_gene_sequences += f">{fasta_filename}_{contig_id}_{gene_id}_{strand}\n{str(gene_sequence)}\n"
 
-    # Step 4: Write all accumulated gene sequences to a single output FASTA file
-    with open(output_file_path, "w") as output_file:
-        output_file.write(all_gene_sequences)
+    write_gene_sequences_to_fasta(output_file_path, all_gene_sequences)
 
-    conn.close()
+    close_database_connection(conn)
 
 # Example usage:
-db_file = "db.db"
-gene_name = "0001217"
-output_folder = "temp.fna"
-column = "SO"
-extract_gene_sequence_to_fasta(db_file, gene_name, column, output_folder)
+if __name__ == "__main__":
+    db_file = "db.db"
+    gene_name = "0001217"
+    output_folder = "temp.fna"
+    column = "SO"
+    extract_gene_sequence_to_fasta(db_file, gene_name, column, output_folder)
