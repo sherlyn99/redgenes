@@ -10,6 +10,7 @@ from scripts.database_operations import *
 # todo: turn all print and error statements into logging
 # test run: ython md_main.py metadata -m ./test/data/gordon_db_ready.tsv --db "test.db"
 
+
 def check_input(path_md):
     '''
     Check if the input is valid.
