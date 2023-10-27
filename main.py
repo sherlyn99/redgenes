@@ -6,7 +6,6 @@ from test import Test
 from scripts.database_operations import *
 from scripts.process_bakta_output import *
 from scripts.submit_bakta import submit_bakta_job, monitor_job_status
-from print.print import print_identifier, print_run_info, print_software_info, print_bakta
 
 # Define default quast values
 quast_software = "Default Software"
@@ -80,9 +79,7 @@ def cli():
     apr.add_argument('-p', '--path', help='File path of fasta file',
                      required=True, type=str)
     apr.add_argument('-d', '--db', help='Filename of database',
-                     required=True, type=str), 
-    apr.add_argument('-m', '--md', help='Path to the metadata',
-                    required=True, type=str)
+                     required=True, type=str)
     master = Test(ap)
 
     # Step 1: Create or initialize the databases

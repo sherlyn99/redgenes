@@ -119,7 +119,8 @@ def create_databases(db_file):
         CREATE TABLE IF NOT EXISTS metadata (
             md_id integer primary key autoincrement,
             entity_id integer,
-            assembly_accession varchar,
+            external_source varchar,
+            external_accession varchar,
             bioproject varchar,
             biosample varchar,
             wgs_master varchar,
