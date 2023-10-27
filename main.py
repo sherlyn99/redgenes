@@ -6,7 +6,6 @@ from test import Test
 from scripts.database_operations import *
 from scripts.process_bakta_output import *
 from scripts.submit_bakta import submit_bakta_job, monitor_job_status
-#from print.print import print_identifier, print_run_info, print_software_info, print_bakta
 
 # Define default quast values
 quast_software = "Default Software"
