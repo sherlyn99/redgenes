@@ -1,6 +1,7 @@
 import sqlite3
 from Bio import SeqIO
 import os
+from skbio import read, write, DNA
 
 def connect_to_database(db_connection):
     """
@@ -26,15 +27,23 @@ def get_gene_info_by_name(cursor, gene_name, column):
     """
     Retrieve gene information from the database based on the gene name.
     """
+    # Execute a query to fetch all entries from the specified column in the table
+    cursor.execute(f"SELECT {column} FROM bakta")
+    # Fetch the results
+    entries = cursor.fetchall()
+    # Print all entries from the specified column
+    for entry in entries:
+        print(entry[0])  # Assuming you want to print the first column of each row
+
     query = f"""
-        SELECT b.contig_id, b.start, b.end, b.strand, b.entity_id, b.gene_id, i.filename, i.filepath
+        SELECT b.contig_id, b.start, b.end, b.strand, b.entity_id, b.gene_id
         FROM bakta AS b
-        INNER JOIN identifier AS i ON b.entity_id = i.entity_id
-        WHERE b.{column} = ?
+        WHERE {column} = ?
     """
     cursor.execute(query, (gene_name,))
     return cursor.fetchall()
 
+# In this there could be an issue with contig_id from bakta annotation versus original fasta file
 def extract_gene_sequence_from_fasta(fasta_file_path, contig_id, start, stop, strand):
     """
     Extract the gene sequence from a FASTA file based on coordinates and strand.
@@ -53,40 +62,35 @@ def extract_gene_sequence_from_fasta(fasta_file_path, contig_id, start, stop, st
     else:
         raise KeyError(f"{contig_id} not found in {fasta_file_path}")
 
-def write_gene_sequences_to_fasta(output_file_path, genes):
-    """
-    Write gene sequence to FASTA file.
-    """
-    with open(output_file_path, 'w') as output_file:
-        for gene_sequence in genes:
-            # Assuming gene_sequence is a string containing the sequence
-            output_file.write(gene_sequence)
-            output_file.write('\n')  # Add a newline to separate sequences
+def write_gene_sequences_to_fasta(output_file_path, sequences):
+    write(sequences, format='fasta', into=output_file_path)
 
-def extract_gene_sequence_to_fasta(db_file, gene_name, column, output_file_path):
+def extract_gene_sequence_to_fasta(db_file, gene_name, column, fasta_path, output_file_path):
     """
     Extract gene sequences based on gene name and write them to an output FASTA file.
     """
     conn, cursor = connect_to_database(db_file)
 
-    genes = []
+    sequences = DNA()
 
     gene_info = get_gene_info_by_name(cursor, gene_name, column)
+    print(gene_info)
 
     for result in gene_info:
-        contig_id, start, end, strand, entity_id, gene_id, fasta_filename, fasta_filepath = result
-        fasta_file_path = os.path.join(fasta_filepath, fasta_filename)
-        genes.append(f">{gene_id}")
-        genes.append(extract_gene_sequence_from_fasta(fasta_file_path, contig_id, start, end, strand))
+        contig_id, start, stop, strand, entity_id, gene_id, = result
+        fasta_file_path = fasta_path + entity_id + ".fna"
+        gene_sequence = extract_gene_sequence_from_fasta(fasta_file_path, contig_id, start, stop, strand)
+        sequences.append(DNA(gene_sequence, metadata={'id': f'{gene_id}'}))
 
-    write_gene_sequences_to_fasta(output_file_path, genes)
+    write_gene_sequences_to_fasta(output_file_path, sequences)
 
     close_database_connection(conn)
 
 # Example usage:
 if __name__ == "__main__":
     db_file = "db.db"
-    gene_name = "WP_005784018.1"
+    gene_name = "WP_032577796.1"
     output_folder = "temp.fna"
     column = "RefSeq"
-    extract_gene_sequence_to_fasta(db_file, gene_name, column, output_folder)
+    fasta_path = "/Users/reneeoles/Desktop/bakta_plan/test/"
+    extract_gene_sequence_to_fasta(db_file, gene_name, column, fasta_path, output_folder)
