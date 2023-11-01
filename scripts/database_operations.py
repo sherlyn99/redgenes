@@ -1,3 +1,4 @@
+import pandas as pd
 import sqlite3
 
 # db_file: '/projects/greengenes2/gg2.db'
@@ -118,7 +119,8 @@ def create_databases(db_file):
         CREATE TABLE IF NOT EXISTS metadata (
             md_id integer primary key autoincrement,
             entity_id integer,
-            assembly_accession varchar,
+            external_source varchar,
+            external_accession varchar,
             bioproject varchar,
             biosample varchar,
             wgs_master varchar,
@@ -329,6 +331,73 @@ def insert_bakta(db, entity_id, contig_id, gene_id, source, type, start, end, st
         conn.close()
         return None
 
+def insert_md(db, entity_id, md):
+    """
+    Insert data into the 'metadata' table.
+
+    Args:
+        cursor (sqlite3.Cursor): The SQLite cursor.
+        entity_id (str): The identifier for the entity associated with the metadata.
+
+        assembly_accession (str): Contig identifier.
+        bioproject (str): bioproject ID. 
+        biosample (str): biosample ID.
+        wgs_master (str): wgs project master accession.
+        refseq_category (str): RefSeq category.
+        taxid (int): taxonomy ID.
+        species_taxid (str): taxonomy ID specific to the species.
+        organism_name (str): organism name.
+        infraspecific_name (str): subspecies or strain name.
+        isolate (str): information on isolate.
+        version_status (str): version of genomic data.
+        assembly_level (str): level of completeness.
+        release_type (str): type of data release or publication.
+        genome_rep (str): repretation of the genome.
+        seq_rel_date (str): release date.
+        asm_name (str): asm name.
+        submitter (str): submitter.
+        gbrs_paired_asm (str): gbrs_paired_asm.
+        paired_asm_comp (str): paired_asm_comp.
+        ftp_path (str): filepath.
+        excluded_from_refseq (str): whethere genome is exluded from refseq.
+        relation_to_type_material (str): relation to type material.
+        asm_not_live_date (str): date of asm not live.
+
+    Returns:
+        None
+    """
+    # check if md is empty
+    try: 
+        df = pd.read_excel(md)
+    except pd.errors.EmptyDataError: 
+        raise ValueError("Metadata is empty")
+
+    # check if md has corrected headers
+    expected_headers = ["assembly_accession", "bioproject", "biosample", "wgs_master", 
+                        "refseq_category", "taxid", "species_taxid", "organism_name", "infraspecific_name",
+                        "isolate", "version_status", "assembly_level", "release_type", "genome_rep", 
+                        "seq_rel_date", "asm_name", "submitter", "gbrs_paired_asm", "paired_asm_comp", 
+                        "ftp_path", "excluded_from_refseq", "relation_to_type_material", "asm_not_live_date"]
+    actual_headers = df.columns.to_list()
+    if len(except_headers) != len(actual_headers):
+        raise ValueError(f"Metadata does not contain the correct number of columns")
+    for i in rannge(len(actual_headers)):
+        if actual_headers[i] != expected_headers[i]:
+            raise ValueError(f"Metadata does not contain expected headers. Check {actual_headers[i]}")
+
+    # insert info into table
+    # metadata is not for individual fasta files?
+    conn = sqlite3.connect(db)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO metadata (
+            entity_id, assembly_accession, bioproject, biosample, wgs_master, refseq_category, taxid, species_taxid, organism_name, infraspecific_name, isolate, version_status, assembly_level, release_type, genome_rep, seq_rel_date, asm_name, submitter, gbrs_paired_asm, paired_asm_comp, ftp_path, excluded_from_refseq, relation_to_type_material, asm_not_live_date
+            )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', md_info)
+    conn.commit()
+    conn.close()
+
 def insert_quast(db, quast_info):
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
@@ -341,14 +410,4 @@ def insert_quast(db, quast_info):
     conn.commit()
     conn.close()
 
-def insert_md(db, md_info):
-    conn = sqlite3.connect(db)
-    cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO metadata (
-            entity_id, assembly_accession, bioproject, biosample, wgs_master, refseq_category, taxid, species_taxid, organism_name, infraspecific_name, isolate, version_status, assembly_level, release_type, genome_rep, seq_rel_date, asm_name, submitter, gbrs_paired_asm, paired_asm_comp, ftp_path, excluded_from_refseq, relation_to_type_material, asm_not_live_date
-            )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', md_info)
-    conn.commit()
-    conn.close()
+
