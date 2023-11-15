@@ -1,6 +1,6 @@
 import unittest
 import sqlite3
-import os
+import io
 from tempfile import TemporaryDirectory
 from bakta_queries import (
     connect_to_database,
@@ -89,7 +89,6 @@ class TestYourScript(unittest.TestCase):
             ("Contig1", 1, 10, "1", "Entity1", "Gene1", "File1", "/path/to/files"),
         )
         gene_info = get_gene_info_by_name(cursor, test_gene_name, test_column)
-        print(gene_info)
         self.assertEqual(len(gene_info), 1)
         conn.close()
 
@@ -103,11 +102,14 @@ class TestYourScript(unittest.TestCase):
         self.assertEqual(gene_sequence, "CGT")
 
     def test_write_gene_sequences_to_fasta(self):
-        output_file_path = os.path.join(self.temp_dir.name, "test_output.fasta")
-        gene_sequences = ">Gene1\nACGT\n>Gene2\nTGCA\n"
-        write_gene_sequences_to_fasta(output_file_path, gene_sequences)
-        self.assertTrue(os.path.isfile(output_file_path))
-
+        outfile = io.StringIO()
+        write_gene_sequences_to_fasta(outfile, gene_sequences)
+        exp = '\n'.join(['>foo', 'ATGC', 
+                     '>bar', 'TGCA', ''])  # empty string at the end to get an ending newline
+        outfile.seek(0)
+        obs = outfile.read()
+        self.assertEqual(obs, exp)
+        
     def test_extract_gene_sequence_to_fasta(self):
         output_file_path = os.path.join(self.temp_dir.name, "test_output.fasta")
         extract_gene_sequence_to_fasta(self.db_connection, "Gene1", "gene_id", output_file_path)  # Fixed this line
