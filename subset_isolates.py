@@ -23,18 +23,11 @@ def subset_isolates_by_metadata(cursor, subset, column):
     Retrieve all isolates that fit a metadata category.
     """
     # Execute a query to fetch all entries from the specified column in the table
-    cursor.execute(f"SELECT {column} FROM metadata")
+    cursor.execute(f"SELECT filename, filepath FROM metadata WHERE {column} = ?", (subset,))
     # Fetch the results
     entries = cursor.fetchall()
 
-    query = f"""
-        SELECT m.filename, m.filepath,
-        FROM metadata AS m,
-        WHERE {column} = ?
-    """
-    cursor.execute(query, (subset,))
-    return cursor.fetchall()
-
+    return entries
 
 # Example usage of the functions
 db_path = "path/to/your/database.db"
