@@ -1,3 +1,5 @@
+import sqlite3
+
 def connect_to_database(db_connection):
     """
     Connect to the SQLite database and return the connection and cursor objects.
@@ -22,12 +24,15 @@ def subset_isolates_by_metadata(cursor, subset, column):
     """
     Retrieve all isolates that fit a metadata category.
     """
-    # Execute a query to fetch all entries from the specified column in the table
-    cursor.execute(f"SELECT filename, filepath FROM metadata WHERE {column} = ?", (subset,))
-    # Fetch the results
-    entries = cursor.fetchall()
-
-    return entries
+    try:
+        # Execute a query to fetch all entries from the specified column in the table
+        cursor.execute(f"SELECT filename, filepath FROM metadata WHERE {column} = ?", (subset,))
+        # Fetch the results
+        entries = cursor.fetchall()
+        return entries
+    except sqlite3.OperationalError as e:
+        print(f"Error: {e}")
+        return None  # or return an appropriate value or raise an exception
 
 # Example usage of the functions
 db_path = "path/to/your/database.db"
