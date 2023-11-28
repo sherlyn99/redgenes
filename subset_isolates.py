@@ -30,20 +30,6 @@ def subset_isolates_by_metadata(cursor, subset, column):
         # Fetch the results
         entries = cursor.fetchall()
         return entries
-    except sqlite3.OperationalError as e:
+    except sqlite3.OperationalError as e:ß
         print(f"Error: {e}")
         return None  # or return an appropriate value or raise an exception
-
-# Example usage of the functions
-db_path = "path/to/your/database.db"
-conn, cursor = connect_to_database(db_path)
-
-# Specify the subset and column for filtering
-subset_value = "some_value"
-metadata_column = "some_column"
-
-# Retrieve isolates based on metadata filtering
-result = subset_isolates_by_metadata(cursor, subset_value, metadata_column)
-
-# Close the database connection when done
-close_database_connection(conn)
