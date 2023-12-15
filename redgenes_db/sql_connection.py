@@ -158,7 +158,7 @@ class Transaction(object):
         return self.execute()[idx]
 
     @_checker
-    def execute_fetchflatten(self, idx=-1):  # this is wrong
+    def execute_fetchflatten(self, idx=-1):  
         """Executes the transcation and returns the flattened results of the
         `idx` query"""
         return list(chain.from_iterable(self.execute()[idx]))
