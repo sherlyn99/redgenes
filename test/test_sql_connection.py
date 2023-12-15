@@ -11,12 +11,6 @@ from os import remove, close
 from os.path import exists
 from tempfile import mkstemp
 
-# from psycopg2._psycopg import connection
-# from psycopg2 import connect
-# from psycopg2.extensions import TRANSACTION_STATUS_IDLE
-
-# from qiita_core.util import qiita_test_checker
-# from qiita_core.qiita_settings import qiita_config
 from contextlib import contextmanager
 from sqlite3 import connect, Connection
 from redgenes_db.redgenes_settings import redgenes_config
