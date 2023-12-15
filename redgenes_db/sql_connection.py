@@ -154,7 +154,7 @@ class Transaction(object):
         return self.execute()[-1][0][0]
 
     @_checker
-    def execute_fetchindex(self, idx=-1):  # this is wrong
+    def execute_fetchindex(self, idx=-1):  
         return self.execute()[idx]
 
     @_checker
