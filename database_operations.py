@@ -1,8 +1,6 @@
 import pandas as pd
 import sqlite3
 
-# db_file: '/projects/greengenes2/gg2.db'
-
 def create_databases(db_file):
     conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
@@ -55,6 +53,7 @@ def create_databases(db_file):
             bakta_accession integer primary key autoincrement,
             entity_id varchar,
             contig_id varchar,
+            position integer,
             gene_id varchar,
             source varchar,
             type varchar,
@@ -409,5 +408,3 @@ def insert_quast(db, quast_info):
     ''', quast_info)
     conn.commit()
     conn.close()
-
-

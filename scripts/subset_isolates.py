@@ -30,6 +30,6 @@ def subset_isolates_by_metadata(cursor, subset, column):
         # Fetch the results
         entries = cursor.fetchall()
         return entries
-    except sqlite3.OperationalError as e:ß
+    except sqlite3.OperationalError as e:
         print(f"Error: {e}")
         return None  # or return an appropriate value or raise an exception
