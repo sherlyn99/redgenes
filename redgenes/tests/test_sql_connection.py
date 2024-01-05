@@ -13,8 +13,8 @@ from tempfile import mkstemp
 
 from contextlib import contextmanager
 from sqlite3 import connect, Connection
-from redgenes_db.redgenes_settings import redgenes_config
-import redgenes_db.sql_connection as sql_connection
+from redgenes.redgenes_settings import redgenes_config
+import redgenes.sql_connection as sql_connection
 
 
 DB_CREATE_TEST_TABLE = """CREATE TABLE test_table (
