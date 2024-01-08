@@ -1,8 +1,8 @@
-from contextlib import contextmanager
+import sqlite3
 from itertools import chain
 from functools import wraps
-import sqlite3
-from redgenes_db.redgenes_settings import redgenes_config
+from contextlib import contextmanager
+from redgenes.redgenes_settings import redgenes_config
 
 
 def _checker(func):
@@ -74,8 +74,8 @@ class Transaction(object):
         self._contexts_entered += 1
         return self
 
-    def _clean_up(self, exc_type):  # undone
-        if exc_type is not None:  # what is exc_type?
+    def _clean_up(self, exc_type):
+        if exc_type is not None:
             self.rollback()
         elif self._queries:
             self.execute()
@@ -126,8 +126,8 @@ class Transaction(object):
                 try:
                     tmp = cur.fetchall()
                     res = [list(dict(row).values()) for row in tmp]
-                    # how sqlite3 rowdict works
-                # sqlite3 v2.6.0 does not report error when cur.fetchall() has no returning results
+                # how sqlite3 rowdict works
+                # sqlite3 v3.41.2 does not report error when cur.fetchall() has no returning results
                 # except sqlite3.ProgrammingError:
                 #     # do not rollback when the error is caused by us running
                 #     # a sql query with no results (e.g. insert, update .etc)
@@ -154,11 +154,11 @@ class Transaction(object):
         return self.execute()[-1][0][0]
 
     @_checker
-    def execute_fetchindex(self, idx=-1):  
+    def execute_fetchindex(self, idx=-1):
         return self.execute()[idx]
 
     @_checker
-    def execute_fetchflatten(self, idx=-1):  
+    def execute_fetchflatten(self, idx=-1):
         """Executes the transcation and returns the flattened results of the
         `idx` query"""
         return list(chain.from_iterable(self.execute()[idx]))
@@ -219,7 +219,42 @@ class Transaction(object):
     def add_post_rollback_func(self, func, *args, **kwargs):
         self._post_rollback_funcs.append((func, args, kwargs))
 
+    # added specifically for sqlite3
+    @_checker
+    def executescript(self, sql_script):
+        # any transaction control must be added to sql_script
+        with self._get_cursor() as cur:
+            cur.executescript(sql_script)
+        # return cur.fetchall()
+
 
 # Singleton pattern, create the transaction for the entire system
 TRN = Transaction()
 TRNADMIN = Transaction(admin=True)
+
+
+def perform_as_transaction(sql, parameters=None):
+    """Opens, adds and executes sql as a single transaction
+
+    Parameters
+    ----------
+    sql : str
+        The SQL to execute
+    parameters: object, optional
+        The object of parameters to pass to the TRN.add command
+    """
+    with TRN:
+        if parameters:
+            TRN.add(sql, parameters)
+        else:
+            TRN.add(sql)
+        TRN.execute()
+
+
+def create_new_transaction():
+    """Creates a new global transaction
+
+    This is needed when using multiprocessing
+    """
+    global TRN
+    TRN = Transaction()
