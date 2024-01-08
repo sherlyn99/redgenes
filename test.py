@@ -15,9 +15,6 @@ from Bio import SeqIO
 import gzip
 
 class Test(object):
-    """
-    This class evaluates all user input to prepare for snakemake run.
-    """
 
     def __init__(self, ap):
 
