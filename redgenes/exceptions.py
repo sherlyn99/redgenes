@@ -40,3 +40,7 @@ class InputError(Error):
 
 class InvalidInputTsv(InputError):
     pass
+
+
+class InvalidFna(InputError):
+    pass
