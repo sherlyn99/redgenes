@@ -6,7 +6,7 @@ from redgenes.utils import (
     run_zip_fna,
     run_unzip_fna,
     read_gff_file,
-    process_qualifers,
+    process_qualifiers,
     extract_qualifier,
     generate_insert_stmt,
     copy_and_unzip,
@@ -159,7 +159,7 @@ def extract_prodigal_results(gff_path):
                 int(feature.location.end),
                 int(feature.location.strand),
             ]
-            tmp_qualifiers = process_qualifers(feature.qualifiers, dtype_map)
+            tmp_qualifiers = process_qualifiers(feature.qualifiers, dtype_map)
             tmp += tmp_qualifiers
             results.append(tmp)
     return results
@@ -210,7 +210,7 @@ def extract_barrnap_results(gff_path):
                     int(feature.location.strand),
                 ]
                 dtype_map = {"source": str, "score": float, "product": str, "note": str}
-                tmp_quali = process_qualifers(feature.qualifiers, dtype_map)
+                tmp_quali = process_qualifiers(feature.qualifiers, dtype_map)
                 tmp += tmp_quali
                 results.append(tmp)
     return results

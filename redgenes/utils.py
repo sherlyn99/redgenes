@@ -7,39 +7,6 @@ from contextlib import contextmanager
 from redgenes.exceptions import InvalidFna
 
 
-@contextmanager
-def copy_and_unzip(zip_path, tmp_dir):
-    """Given a zipped fna file and a temp directory, creates a subdirectory and
-    unzip the fna file in the subdirectory. Remove the subdirectory when done."""
-    try:
-        source_path = Path(zip_path)
-
-        if not source_path.exists():
-            raise FileNotFoundError(
-                f"Error in context manager: the zipfile {zip_path} does not exist."
-            )
-
-        source_filename = source_path.name  # genome1.fna.gz
-        source_filename_unzipped = Path(source_filename).stem  # genome1.fna
-        source_stem = Path(source_filename_unzipped).stem  # genome1
-
-        target_path = Path(tmp_dir) / source_stem
-        target_path.mkdir(parents=True)
-
-        target_file = target_path / source_filename_unzipped
-
-        # Unzip a fasta file into tmpdir/genomename
-        with gzip.open(source_path, "rt") as compressed_file, open(
-            target_file, "w"
-        ) as decompressed_file:
-            shutil.copyfileobj(compressed_file, decompressed_file)
-
-        yield target_file
-
-    finally:
-        shutil.rmtree(target_path)
-
-
 ################################
 # Generate sql insert statements
 ################################
@@ -83,7 +50,7 @@ def extract_qualifier(qualiers_dict, qualifier_key, qualifier_dtype):
         return qualifier_value
 
 
-def process_qualifers(qualifiers_dict, dtype_map):
+def process_qualifiers(qualifiers_dict, dtype_map):
     """Extract selected qualifier fields from SeqRecord.feature.qualifiers in specified dtypes."""
     processed_qualifers = []
     for field, dtype in dtype_map.items():
@@ -136,3 +103,36 @@ def run_zip_fna(filepath):
         f"{filepath}",
     ]
     run_command(commands, InvalidFna, "error")
+
+
+@contextmanager
+def copy_and_unzip(zip_path, tmp_dir):
+    """Given a zipped fna file and a temp directory, creates a subdirectory and
+    unzip the fna file in the subdirectory. Remove the subdirectory when done."""
+    try:
+        source_path = Path(zip_path)
+
+        if not source_path.exists():
+            raise FileNotFoundError(
+                f"Error in context manager: the zipfile {zip_path} does not exist."
+            )
+
+        source_filename = source_path.name  # genome1.fna.gz
+        source_filename_unzipped = Path(source_filename).stem  # genome1.fna
+        source_stem = Path(source_filename_unzipped).stem  # genome1
+
+        target_path = Path(tmp_dir) / source_stem
+        target_path.mkdir(parents=True)
+
+        target_file = target_path / source_filename_unzipped
+
+        # Unzip a fasta file into tmpdir/genomename
+        with gzip.open(source_path, "rt") as compressed_file, open(
+            target_file, "w"
+        ) as decompressed_file:
+            shutil.copyfileobj(compressed_file, decompressed_file)
+
+        yield target_file
+
+    finally:
+        shutil.rmtree(target_path)
