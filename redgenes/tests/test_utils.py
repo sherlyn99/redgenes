@@ -147,11 +147,11 @@ class TestUtils(TestCase):
         tmp_dir = "/tmp"
         source_filename_unzipped = "test_genome.fna"
 
-        # # Test case when zip file does not exist
-        # mock_exists.return_value = False
-        # with self.assertRaises(FileNotFoundError):
-        #     with copy_and_unzip(zip_path, tmp_dir):
-        #         pass
+        # Test case when zip file does not exist
+        mock_exists.return_value = False
+        with self.assertRaises(FileNotFoundError):
+            with copy_and_unzip(zip_path, tmp_dir):
+                pass
 
         # Test case for successful unzip
         mock_exists.return_value = True

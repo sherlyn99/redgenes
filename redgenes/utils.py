@@ -1,131 +1,118 @@
 import gzip
 import shutil
 import subprocess
-from BCBio import GFF
+import pandas as pd
 from pathlib import Path
+from skbio.io import read
 from contextlib import contextmanager
-from redgenes.exceptions import InvalidFna
-
-
-################################
-# Generate sql insert statements
-################################
-def generate_insert_stmt(table_name, column_names):
-    stmt = f"insert into {table_name} ({', '.join(column_names)}) values ({', '.join(['?']*len(column_names))});"
-    return stmt
 
 
 ################################
 # Extract data from GFF3 files
 ################################
-def read_gff_file(gff_file):
-    """Parse a gff file and return all of its records"""
-    if not Path(gff_file).exists():
-        raise FileNotFoundError(f"Error: GFF file not found at {gff_file}")
-    records = []
-    with open(gff_file, "r") as in_handle:
-        records = list(GFF.parse(in_handle))
-    return records
+def read_gff_file(gff_path: str):
+    """Read GFF3 file into a generator."""
+    gen = read(gff_path, format="gff3")
+    return gen
 
 
-def extract_qualifier(qualiers_dict, qualifier_key, qualifier_dtype):
-    """Extract a qualifier field from SeqRecord.feature.qualifiers and returns its value in the specified dtype.
+def extract_gff_info(gen):
+    """Extract GFF3 information into a pandas DataFrame."""
+    attributes_list = []
+    for contig in gen:
+        contig_id = contig[0]
+        for record in contig[1]._intervals:
+            attributes = record.metadata
+            attributes["contig_id"] = contig_id  # Assumes contig_id always not null
 
-    If the field does not exist, returns 'NA' or 0 depending on the specified
-    dtype; If the field has a list of values, returns the first item of the
-    list in the specified dtype. See https://github.com/hyattpd/prodigal/wiki/understanding-the-prodigal-output for an explaination of qualifier key values
-    """
-    if isinstance(tmp := qualiers_dict.get(qualifier_key), list):
-        # If qualifier is a list, take the first value
-        qualifier_value = tmp[0]
-    else:
-        qualifier_value = qualiers_dict.get(qualifier_key, None)
+            try:
+                # Sanity check: start, end values should be convertable to integers
+                attributes["start"], attributes["end"] = map(int, record.bounds[0])
+            except Exception as e:
+                raise ValueError(f"Invalid start and end values from GFF3 file.")
 
-    if qualifier_value:
-        # Returns the qualifier value in the correct dtype
-        if qualifier_value == "None":
-            return None
-        return qualifier_dtype(qualifier_value)
-    else:
-        return qualifier_value
+            attributes["start_fuzzy"], attributes["end_fuzzy"] = record.fuzzy[
+                0
+            ]  # skbio says this should be [False, False] by default, not sure why sometimes these values are True
+
+            attributes_list.append(attributes)
+
+    attributes_df = pd.DataFrame(attributes_list, dtype=str)  # May generate NaN values
+    return attributes_df
 
 
-def process_qualifiers(qualifiers_dict, dtype_map):
-    """Extract selected qualifier fields from SeqRecord.feature.qualifiers in specified dtypes."""
-    processed_qualifers = []
-    for field, dtype in dtype_map.items():
-        value = extract_qualifier(qualifiers_dict, field, dtype)
-        processed_qualifers.append(value)
-    return processed_qualifers
+def process_gff_info(attributes_df, cols_to_front, dtype_map):
+    """Format and process the DataFrame containing GFF3 information."""
+    for col in cols_to_front:
+        if col not in attributes_df:
+            raise ValueError(
+                f"Invalid cols_to_front: {col} does not exist in the dataframe."
+            )
+
+    # Adjust column order
+    new_order = cols_to_front + [
+        col for col in attributes_df.columns if col not in cols_to_front
+    ]
+    attributes_df = attributes_df[new_order]
+
+    # Adjust data type
+    try:
+        gff_df = attributes_df.astype(dtype_map)
+    except Exception as e:
+        raise ValueError(f"Error: {e}; This could be due to an invalid dtype map.")
+
+    return gff_df
 
 
 ################################
 # Run bash commands
 ################################
-def run_command(commands, errortype, errortext):
-    """Run bash commands using subprocess."""
+def run_command_and_check_outputs(commands, error, files=None, shell_bool=False):
     try:
-        res = subprocess.run(commands, capture_output=True, check=True)
+        res = subprocess.run(
+            commands, capture_output=True, check=True, shell=shell_bool
+        )
         assert res.returncode == 0
+    except AssertionError as e:
+        raise error(
+            f"Commands did not finsih with exit code 0: \n{res.stderr}. \nThe commands were {commands}"
+        )
     except Exception as e:
-        raise errortype(f"There is an {errortext}: {e}.")
+        raise error(f"There is an error {e}: \n{res.stderr}")
+
+    # Check if outputs exist
+    if files:
+        for file in files:
+            if not Path(file).exists:
+                raise error(f"Output file {file} not generated.")
+
+    return res
 
 
 ################################
 # Zip and unzip fasta files
 ################################
-def run_unzip_fna(filepath):
-    """Checks if a zipped file exists and unzip it."""
-    if Path(filepath).exists():
-        commands = [
-            "gzip",
-            "-d",
-            f"{filepath}",
-        ]
-        run_command(commands, InvalidFna, "error")
-    elif (unzipped_path := Path(filepath.replace(".gz", ""))).exists():
-        raise ValueError(f"Unzipped file already exists: {str(unzipped_path)}.")
-    else:
-        raise FileNotFoundError(f"File not found: {filepath}.")
-
-
-def run_zip_fna(filepath):
-    """Checks if an unzipped file exists and zip it."""
-    if not Path(filepath).exists():
-        raise FileNotFoundError(f"Unzipped file does not exist: {filepath}.")
-
-    zipped_path = filepath + ".gz"
-    if Path(zipped_path).exists():
-        raise ValueError(f"Zipped file already exists: {zipped_path}.")
-
-    commands = [
-        "gzip",
-        f"{filepath}",
-    ]
-    run_command(commands, InvalidFna, "error")
-
-
 @contextmanager
 def copy_and_unzip(zip_path, tmp_dir):
     """Given a zipped fna file and a temp directory, creates a subdirectory and
     unzip the fna file in the subdirectory. Remove the subdirectory when done."""
+    source_path = Path(zip_path)
+
+    if not source_path.exists():
+        raise FileNotFoundError(
+            f"Error in context manager: the zipfile {zip_path} does not exist."
+        )
+
+    source_filename = source_path.name  # genome1.fna.gz
+    source_filename_unzipped = Path(source_filename).stem  # genome1.fna
+    source_stem = Path(source_filename_unzipped).stem  # genome1
+
+    target_path = Path(tmp_dir) / source_stem
+    target_path.mkdir(parents=True)
+
+    target_file = target_path / source_filename_unzipped
+
     try:
-        source_path = Path(zip_path)
-
-        if not source_path.exists():
-            raise FileNotFoundError(
-                f"Error in context manager: the zipfile {zip_path} does not exist."
-            )
-
-        source_filename = source_path.name  # genome1.fna.gz
-        source_filename_unzipped = Path(source_filename).stem  # genome1.fna
-        source_stem = Path(source_filename_unzipped).stem  # genome1
-
-        target_path = Path(tmp_dir) / source_stem
-        target_path.mkdir(parents=True)
-
-        target_file = target_path / source_filename_unzipped
-
         # Unzip a fasta file into tmpdir/genomename
         with gzip.open(source_path, "rt") as compressed_file, open(
             target_file, "w"
