@@ -20,14 +20,15 @@ create table if not exists md_info(
     external_accession varchar,
     created_at timestamp default current_timestamp,
     modified_at timestamp default current_timestamp,
-    foreign key (entity_id) references identifier (entity_id)
+    foreign key (entity_id) references identifier (entity_id),
+    unique(md_id, entity_id)
 );
 
 create table if not exists run_info(
     run_id integer primary key autoincrement,
     software varchar,
-    version varchar, 
-    parameters varchar, 
+    version varchar,
+    commands varchar, 
     notes varchar,
     created_at timestamp default current_timestamp,
     modified_at timestamp default current_timestamp
@@ -38,67 +39,77 @@ create table if not exists cds_info(
     cds_id integer primary key autoincrement, 
     entity_id integer not null,
     contig_id varchar not null,
-    gene_id varchar,
+    gene_id varchar not null,
     gene_type varchar not null,
     start integer not null,
     end integer not null,
-    strand integer, 
+    conf real not null,    
+    score real not null,
+    source varchar not null,
+    strand integer not null,
+    phase integer not null, 
     partial varchar,
     start_type varchar,
     stop_type varchar,
     rbs_motif varchar,
     rbs_spacer varchar,
     gc_cont real,
-    conf real,
-    score real,
     cscore real,
     sscore real,
     rscore real,
     uscore real,
     tscore real,
     mscore real,
+    start_fuzzy varchar not null, 
+    end_fuzzy varchar not null,
     run_id integer, 
     created_at timestamp default current_timestamp,
     modified_at timestamp default current_timestamp,
     foreign key (entity_id) references identifier (entity_id),
-    foreign key (run_id) references run_info (run_id)
+    foreign key (run_id) references run_info (run_id),
+    unique(entity_id, contig_id, gene_id, gene_type, start)
 );
 
 -- store kofam_scan outputs
 create table if not exists ko_info(
     ko_id integer primary key autoincrement, 
-    entity_id integer,
-    gene_name varchar, 
-    ko varchar,
-    threshold real, 
-    score real, 
-    e_value real, 
-    ko_definition varchar, 
+    entity_id integer not null,
+    gene_name varchar not null, 
+    ko varchar not null,
+    threshold real not null, 
+    score real not null, 
+    e_value real not null, 
+    ko_definition varchar not null, 
     run_id integer,
     created_at timestamp default current_timestamp,
     modified_at timestamp default current_timestamp,
     foreign key (entity_id) references identifier (entity_id),
-    foreign key (run_id) references run_info (run_id)
+    foreign key (run_id) references run_info (run_id),
+    unique(entity_id, gene_name, ko, threshold)
 );
 
 -- store barrnap outputs
 create table if not exists rrna_info(
     rrna_id integer primary key autoincrement,
-    entity_id integer, 
-    contig_id varchar,
-    rrna_type varchar,
-    start int,
-    end int,
-    strand int, 
-    source varchar, 
-    score real, 
+    entity_id integer not null, 
+    contig_id varchar not null,
+    gene_type varchar not null,
+    rrna_name varchar not null,
+    start int not null,
+    end int not null,
+    strand int not null, 
+    source varchar not null, 
+    score real not null, 
     product varchar, 
     note varchar,
+    start_fuzzy varchar not null, -- 1: True, 0: False
+    end_fuzzy varchar not null, -- 1: True, 0: False
     run_id integer,
     created_at timestamp default current_timestamp,
     modified_at timestamp default current_timestamp,
     foreign key (entity_id) references identifier (entity_id),
-    foreign key (run_id) references run_info (run_id)
+    foreign key (run_id) references run_info (run_id),
+    unique(entity_id, contig_id, rrna_name, start)
 );
 
 COMMIT;

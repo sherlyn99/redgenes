@@ -22,7 +22,7 @@ def execute_patch_file(patch: Path):
         with open(patch) as f:
             sql_script = f.read()
     except Exception as e:
-        raise RuntimeError(f"Cannot open {patch}")
+        raise PatchFileExecutionError(f"Cannot open {patch}")
 
     with TRN:
         TRN.executescript(sql_script)

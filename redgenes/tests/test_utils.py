@@ -1,132 +1,109 @@
 import subprocess
+import pandas as pd
 from pathlib import Path
 from unittest import TestCase, main
 from unittest.mock import patch, mock_open
-from redgenes.exceptions import InvalidFna
 from redgenes.utils import (
-    generate_insert_stmt,
     read_gff_file,
-    extract_qualifier,
-    process_qualifiers,
-    run_unzip_fna,
-    run_zip_fna,
+    extract_gff_info,
+    process_gff_info,
+    run_command_and_check_outputs,
     copy_and_unzip,
-    run_command,
 )
 
 
+# Mock class to simulate the structure of GFF3 file data
+class MockRecord:
+    def __init__(self, metadata, bounds, fuzzy):
+        self.bounds = bounds
+        self.fuzzy = fuzzy
+        self.metadata = metadata
+
+
+class MockIntervals:
+    def __init__(self, intervals):
+        self._intervals = intervals
+
+
+# Mock generator function to simulate reading a GFF3 file
+def mock_read_gff_file(path, format):
+    mock_data = [
+        [
+            "contig1",
+            MockIntervals([MockRecord({"key": "value1"}, [(1, 2)], [(False, False)])]),
+        ],
+        [
+            "contig2",
+            MockIntervals([MockRecord({"key": "value2"}, [(3, 4)], [(False, False)])]),
+        ],
+    ]
+    return mock_data
+
+
 class TestUtils(TestCase):
-    def test_generate_insert_stmt(self):
-        table_name = "test_table"
-        column_names = ["col1", "col2", "col3"]
-        expected = "insert into test_table (col1, col2, col3) values (?, ?, ?);"
-        result = generate_insert_stmt(table_name, column_names)
-        self.assertEqual(result, expected)
-
-    def test_read_gff_file_file_not_found(self):
-        with self.assertRaises(FileNotFoundError):
-            read_gff_file("nonexistent.gff")
-
-    def test_extract_qualifier(self):
-        # Test case when the qualifier key exists and is a list
-        qualifiers_dict = {"key1": ["value1", "value2"], "key2": "value3"}
-        result = extract_qualifier(qualifiers_dict, "key1", str)
-        assert (
-            result == "value1"
-        ), "Failed to extract first value from a list of qualifiers"
-
-        # Test case when the qualifier key exists and is not a list
-        result = extract_qualifier(qualifiers_dict, "key2", str)
-        assert (
-            result == "value3"
-        ), "Failed to extract value when qualifier is not a list"
-
-        # Test case when the qualifier key does not exist
-        result = extract_qualifier(qualifiers_dict, "key3", int)
-        assert result is None, "Failed to return None for non-existent key"
-
-        # Test case when the qualifier value is 'None' (string)
-        qualifiers_dict = {"key1": "None"}
-        result = extract_qualifier(qualifiers_dict, "key1", str)
-        assert result is None, "Failed to return None for 'None' string value"
-
-        # Test case for converting type
-        qualifiers_dict = {"key1": "123"}
-        result = extract_qualifier(qualifiers_dict, "key1", int)
-        assert result == 123, "Failed to convert string to integer"
-
-    def test_process_qualifiers(self):
-        # Setup
-        qualifiers_dict = {
-            "key1": "value1",
-            "key2": ["value2a", "value2b"],
-            "key3": "123",
-            "key4": "None",
-        }
-        dtype_map = {
-            "key1": str,
-            "key2": str,
-            "key3": int,
-            "key4": str,
-            "key5": float,  # key5 does not exist in qualifiers_dict
-        }
-
-        # Expected result should handle the conversion and default values correctly
-        expected_result = ["value1", "value2a", 123, None, None]
-
-        # Call the function
-        result = process_qualifiers(qualifiers_dict, dtype_map)
-
-        # Assertions
-        assert (
-            result == expected_result
-        ), f"Result {result} does not match expected {expected_result}"
-
-    @patch("redgenes.utils.Path.exists")
-    def test_run_unzip_fna_file_not_found(self, mock_exists):
-        mock_exists.return_value = False
-        with self.assertRaises(FileNotFoundError):
-            run_unzip_fna("nonexistent.fna.gz")
-
-    @patch("redgenes.utils.Path.exists")
-    @patch("redgenes.utils.run_command")
-    def test_run_unzip_fna_success(self, mock_run_command, mock_exists):
-        mock_exists.side_effect = [
-            True,
-            False,
-        ]  # First call (for .gz file), second call (for unzipped file)
-        run_unzip_fna("test.fna.gz")
-        mock_run_command.assert_called_with(
-            ["gzip", "-d", "test.fna.gz"], InvalidFna, "error"
+    @patch("redgenes.utils.read", side_effect=mock_read_gff_file)
+    def test_read_gff_file(self, mock_read):
+        gff_path = "dummy_path"
+        gen = read_gff_file(gff_path)
+        self.assertTrue(
+            isinstance(gen, type(mock_read_gff_file(gff_path, format="gff3")))
         )
 
-    @patch("redgenes.utils.Path.exists")
-    @patch("redgenes.utils.run_command")
-    def test_run_zip_fna(self, mock_run_command, mock_exists):
-        # Setup
-        filepath = "test_file.fna"
-        zipped_path = "test_file.fna.gz"
+    def test_extract_gff_info(self):
+        gen = mock_read_gff_file("dummy_path", format="gff3")
+        df = extract_gff_info(gen)
+        self.assertIsInstance(df, pd.DataFrame)
+        self.assertEqual(df.shape[0], 2)  # Two records in the mocked data
+        self.assertTrue("contig_id" in df.columns)
+        self.assertTrue("start" in df.columns)
+        self.assertTrue("end" in df.columns)
 
-        # Test case when unzipped file does not exist
-        mock_exists.return_value = False
-        with self.assertRaises(FileNotFoundError):
-            run_zip_fna(filepath)
+    def test_process_gff_info(self):
+        df = pd.DataFrame({"col1": ["1", "2"], "col2": ["3", "4"]})
+        cols_to_front = ["col2"]
+        dtype_map = {"col1": int, "col2": str}
 
-        # Test case when zipped file already exists
-        mock_exists.side_effect = [
-            True,
-            True,
-        ]  # First call for unzipped, second for zipped
-        with self.assertRaises(ValueError):
-            run_zip_fna(filepath)
+        result = process_gff_info(df, cols_to_front, dtype_map)
+        self.assertIsInstance(result, pd.DataFrame)
+        self.assertEqual(list(result.columns), ["col2", "col1"])  # Check column order
+        self.assertEqual(result.dtypes["col1"], "int64")  # Check dtype of col1
 
-        # Test case for successful zipping
-        mock_exists.side_effect = [
-            True,
-            False,
-        ]  # First call for unzipped, second for zipped not existing
-        run_zip_fna(filepath)
-        mock_run_command.assert_called_with(["gzip", filepath], InvalidFna, "error")
+    @patch("redgenes.utils.subprocess.run")
+    def test_run_command_success(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["echo", "hello"], returncode=0
+        )
+
+        try:
+            run_command_and_check_outputs(["echo", "hello"], RuntimeError)
+        except Exception as e:
+            self.fail(
+                f"run_command_and_check_outputs raised an exception unexpectedly: {e}"
+            )
+
+    @patch("redgenes.utils.subprocess.run")
+    def test_run_command_failure(self, mock_run):
+        mock_run.side_effect = subprocess.CalledProcessError(1, ["false"])
+
+        with self.assertRaises(RuntimeError):
+            run_command_and_check_outputs(["false"], RuntimeError)
+
+    @patch("redgenes.utils.Path.exists", return_value=True)
+    @patch("redgenes.utils.subprocess.run")
+    def test_run_command_with_file_check(self, mock_run, mock_exists):
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["touch", "testfile"], returncode=0
+        )
+        files_to_check = ["testfile"]
+
+        try:
+            run_command_and_check_outputs(
+                ["touch", "testfile"], RuntimeError, files=files_to_check
+            )
+        except Exception as e:
+            self.fail(
+                f"run_command_and_check_outputs raised an exception unexpectedly when checking files: {e}"
+            )
 
     @patch("redgenes.utils.shutil.copyfileobj")
     @patch("redgenes.utils.gzip.open", new_callable=mock_open)
@@ -161,30 +138,12 @@ class TestUtils(TestCase):
             mock_gzip_open.assert_called()
             mock_copyfileobj.assert_called()
             self.assertEqual(
-                unzipped_file, Path(tmp_dir) / "test_genome" / source_filename_unzipped
+                unzipped_file,
+                Path(tmp_dir) / "test_genome" / source_filename_unzipped,
             )
 
         # Ensure rmtree is called
         mock_rmtree.assert_called_once_with(Path(tmp_dir) / "test_genome")
-
-    @patch("redgenes.utils.subprocess.run")
-    def test_run_command_success(self, mock_run):
-        mock_run.return_value = subprocess.CompletedProcess(
-            args=["ls", "-la"], returncode=0
-        )
-
-        try:
-            run_command(["ls", "-la"], RuntimeError, "list error")
-        except Exception as e:
-            self.fail(f"run_command raised an exception unexpectedly: {e}")
-
-    @patch("redgenes.utils.subprocess.run")
-    def test_run_command_failure(self, mock_run):
-        mock_run.side_effect = subprocess.CalledProcessError(1, ["ls", "-la"])
-
-        with self.assertRaises(RuntimeError) as context:
-            run_command(["ls", "-la"], RuntimeError, "list error")
-        self.assertIn("There is an list error:", str(context.exception))
 
 
 if __name__ == "__main__":

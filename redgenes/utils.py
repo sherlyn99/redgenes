@@ -33,7 +33,7 @@ def extract_gff_info(gen):
 
             attributes["start_fuzzy"], attributes["end_fuzzy"] = record.fuzzy[
                 0
-            ]  # skbio says this should be [False, False] by default, not sure why sometimes these values are True
+            ]  # Skbio says this should be [False, False] by default, not sure why sometimes these values are True
 
             attributes_list.append(attributes)
 
@@ -68,17 +68,24 @@ def process_gff_info(attributes_df, cols_to_front, dtype_map):
 # Run bash commands
 ################################
 def run_command_and_check_outputs(commands, error, files=None, shell_bool=False):
+    res = None
     try:
         res = subprocess.run(
             commands, capture_output=True, check=True, shell=shell_bool
         )
         assert res.returncode == 0
     except AssertionError as e:
-        raise error(
-            f"Commands did not finsih with exit code 0: \n{res.stderr}. \nThe commands were {commands}"
+        error_message = (
+            f"Commands did not finsih with exit code 0: \nThe commands were {commands}."
         )
+        if res:
+            error_message += f"\n Additional error details: {res.stderr}"
+        raise error(error_message)
     except Exception as e:
-        raise error(f"There is an error {e}: \n{res.stderr}")
+        error_message = f"There is an error {e}"
+        if res:
+            eror_message += f": \n{res.stderr}"
+        raise error(error_message)
 
     # Check if outputs exist
     if files:
