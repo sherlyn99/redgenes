@@ -81,11 +81,9 @@ def extract_md_info(tsv_file):
     """Load data from tsv and checks data integrity."""
     df = pd.read_csv(tsv_file, sep="\t", dtype=str)
 
-    # Check the structure of input tsv
     if df.shape[1] != 40:
         raise InvalidInputTsv(f"Invalid input TSV: {tsv_file}")
 
-    # Modify data types
     df["annotation_date"] = pd.to_datetime(df["annotation_date"], errors="coerce")
     dtype_map = {
         "taxid": "Int64",
@@ -183,7 +181,7 @@ def extract_barrnap_results(gff_path):
 
 
 def annotation_pipeline(df, tmpdir, kofamscan_profile, kofamscan_kolist):
-    for index, row in df.iterrows():
+    for _, row in df.iterrows():
         # Prepare data for 'identifier' table and 'md_info' table
         local_path = row["local_path"]
         filename = row["assembly_accession"]
@@ -192,16 +190,13 @@ def annotation_pipeline(df, tmpdir, kofamscan_profile, kofamscan_kolist):
         external_accession = row["assembly_accession"]
 
         # Run genome annotation pipeline
-        ## Step 1: Unzip fna.gz file
         with copy_and_unzip(local_path, tmpdir) as input_fasta:
             tmpdir_curr = input_fasta.parent  # e.g. tmpdir/hA10
 
-            ## Step 2: Run prodigal to get {filename}_cds.gff
             prodigal_output_gff, prodigal_output_faa = run_prodigal(
                 input_fasta, tmpdir_curr
             )
 
-            ## Step 3: Run kofamscan to get {filename}_kofamscan.tsv
             kofamscan_output_tsv = run_kofamscan(
                 prodigal_output_faa,
                 kofamscan_profile,
@@ -210,16 +205,13 @@ def annotation_pipeline(df, tmpdir, kofamscan_profile, kofamscan_kolist):
                 tmpdir_curr,
             )
 
-            ## Step 4: Run barrnap to get {filename}_rrna.gff
             barrnap_output_gff = run_barrnap(input_fasta, tmpdir_curr)
 
-            ## Step 5: Extract results
             cds_df = extract_prodigal_results(prodigal_output_gff)
             kofamscan_df = extract_kofamscan_results(kofamscan_output_tsv)
             rrna_df = extract_barrnap_results(barrnap_output_gff)
 
         with TRN:
-            # identifier
             sql_identifier = """
                 INSERT INTO identifier (filename_full, filepath)
                 VALUES (?, ?)
@@ -228,7 +220,6 @@ def annotation_pipeline(df, tmpdir, kofamscan_profile, kofamscan_kolist):
             TRN.add(sql_identifier, args_identifer)
             entity_id = TRN.execute_fetchflatten()
 
-            # md_info
             sql_md_info = """
                 INSERT INTO md_info (entity_id, source, external_accession)
                 VALUES (?, ?, ?)"""
@@ -236,9 +227,6 @@ def annotation_pipeline(df, tmpdir, kofamscan_profile, kofamscan_kolist):
             args_md_info = entity_id + args_md_info
             TRN.add(sql_md_info, args_md_info)
 
-            # run_info
-
-            # cds_info
             cds_df.insert(0, "entity_id", entity_id[0])
             args_cds_info = cds_df.values.tolist()
             sql_cds_info = """
@@ -269,7 +257,6 @@ def annotation_pipeline(df, tmpdir, kofamscan_profile, kofamscan_kolist):
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"""
             TRN.add(sql_cds_info, args_cds_info, many=True)
 
-            # ko_info
             kofamscan_df.insert(0, "entity_id", entity_id[0])
             args_ko_info = kofamscan_df.values.tolist()
             sql_ko_info = """
@@ -284,7 +271,6 @@ def annotation_pipeline(df, tmpdir, kofamscan_profile, kofamscan_kolist):
                 VALUES (?, ?, ?, ?, ?, ?, ?);"""
             TRN.add(sql_ko_info, args_ko_info, many=True)
 
-            # rrna_info
             rrna_df.insert(0, "entity_id", entity_id[0])
             args_rrna_info = rrna_df.values.tolist()
             sql_rrna_info = """
@@ -311,16 +297,11 @@ def annotation_pipeline(df, tmpdir, kofamscan_profile, kofamscan_kolist):
 
 
 def main():
-    # 1. Initialize db and run new patch files
     initialize_db()
 
-    # 2. get genomes and their genome paths
-    ## fetch from tsv tables
     md_tsv = "./redgenes/tests/data/md_gordon_2.tsv"
     md_df = extract_md_info(md_tsv)
 
-    # 3. run genome annotation pipelines
-    ## kofamscan parameters
     ko_profile = "/projects/greengenes2/20231117_annotations_prelim/kofam_scan/profiles/test_subset.hal"
     ko_kolist = (
         "/projects/greengenes2/20231117_annotations_prelim/kofam_scan/ko_list_subset"
