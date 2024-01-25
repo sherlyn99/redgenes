@@ -93,7 +93,7 @@ def run_command_and_check_outputs(commands, error, files=None, shell_bool=False)
             if not Path(file).exists:
                 raise error(f"Output file {file} not generated.")
 
-    return res
+    return res, " ".join(list(map(str, commands)))
 
 
 ################################

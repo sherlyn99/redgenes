@@ -32,10 +32,10 @@ def run_prodigal(input_fasta, outdir):
         "-q"
     ]
     # fmt: on
-    run_command_and_check_outputs(
+    _, commands_str = run_command_and_check_outputs(
         commands, ProdigalError, [prodigal_output_gff, prodigal_output_faa]
     )
-    return str(prodigal_output_gff), str(prodigal_output_faa)
+    return str(prodigal_output_gff), str(prodigal_output_faa), commands_str
 
 
 def run_kofamscan(input_faa: Path, profile, kolist, outdir, tmpdir, cpu=1):
@@ -54,8 +54,8 @@ def run_kofamscan(input_faa: Path, profile, kolist, outdir, tmpdir, cpu=1):
         "--tmp-dir", Path(tmpdir) / f"kofamscan_tmp_{stem}",     
     ]
     # fmt: On
-    run_command_and_check_outputs(commands, KofamscanError, [kofamscan_output_tsv])
-    return str(kofamscan_output_tsv)
+    _, commands_str = run_command_and_check_outputs(commands, KofamscanError, [kofamscan_output_tsv])
+    return str(kofamscan_output_tsv), commands_str
 
 
 def run_barrnap(input_fasta, outdir, cpu=1):
@@ -64,7 +64,7 @@ def run_barrnap(input_fasta, outdir, cpu=1):
 
     commands = ["barrnap", input_fasta, "--threads", str(cpu), "--quiet"]
 
-    res = run_command_and_check_outputs(commands, BarrnapError)
+    res, commands_str = run_command_and_check_outputs(commands, BarrnapError)
 
     if res:
         try:
@@ -74,7 +74,7 @@ def run_barrnap(input_fasta, outdir, cpu=1):
         except Exception as e:
             raise BarrnapError(f"There is an error writing barrnap output: {e}")
 
-    return str(barrnap_output_gff)
+    return str(barrnap_output_gff), commands_str
 
 
 def extract_md_info(tsv_file):
@@ -193,11 +193,16 @@ def annotation_pipeline(df, tmpdir, kofamscan_profile, kofamscan_kolist):
         with copy_and_unzip(local_path, tmpdir) as input_fasta:
             tmpdir_curr = input_fasta.parent  # e.g. tmpdir/hA10
 
-            prodigal_output_gff, prodigal_output_faa = run_prodigal(
+            prodigal_output_gff, prodigal_output_faa, prodigal_commands = run_prodigal(
                 input_fasta, tmpdir_curr
             )
 
-            kofamscan_output_tsv = run_kofamscan(
+            res, _ = run_command_and_check_outputs(
+                ["exec_annotation", "-v"], ValueError
+            )
+            kofamscan_version = res.stdout.decode().strip()
+
+            kofamscan_output_tsv, kofamscan_commands = run_kofamscan(
                 prodigal_output_faa,
                 kofamscan_profile,
                 kofamscan_kolist,
@@ -205,7 +210,7 @@ def annotation_pipeline(df, tmpdir, kofamscan_profile, kofamscan_kolist):
                 tmpdir_curr,
             )
 
-            barrnap_output_gff = run_barrnap(input_fasta, tmpdir_curr)
+            barrnap_output_gff, barrnap_commands = run_barrnap(input_fasta, tmpdir_curr)
 
             cds_df = extract_prodigal_results(prodigal_output_gff)
             kofamscan_df = extract_kofamscan_results(kofamscan_output_tsv)
@@ -227,11 +232,33 @@ def annotation_pipeline(df, tmpdir, kofamscan_profile, kofamscan_kolist):
             args_md_info = entity_id + args_md_info
             TRN.add(sql_md_info, args_md_info)
 
+            prodigal_version = cds_df["source"].tolist()[0]
+            sql_extract_prodigal_run_info = """
+                SELECT run_id FROM run_info
+                WHERE software = 'prodigal' and version = ? and commands = ?"""
+            TRN.add(
+                sql_extract_prodigal_run_info, [prodigal_version, prodigal_commands]
+            )
+            prodigal_run_id = TRN.execute_fetchflatten()
+
+            if not prodigal_run_id:
+                sql_run_info_prodigal = """
+                    INSERT INTO run_info (software, version, commands)
+                    VALUES (?, ?, ?) RETURNING run_id"""
+                args_run_info_prodigal = [
+                    "prodigal",
+                    prodigal_version,
+                    prodigal_commands,
+                ]
+                TRN.add(sql_run_info_prodigal, args_run_info_prodigal)
+                prodigal_run_id = TRN.execute_fetchflatten()
+
             cds_df.insert(0, "entity_id", entity_id[0])
+            cds_df["run_id"] = prodigal_run_id[0]
             args_cds_info = cds_df.values.tolist()
             sql_cds_info = """
                 INSERT INTO cds_info (
-                    entity_id, 
+                    entity_id,
                     contig_id,
                     gene_id,
                     gene_type,
@@ -253,11 +280,33 @@ def annotation_pipeline(df, tmpdir, kofamscan_profile, kofamscan_kolist):
                     uscore,
                     tscore,
                     start_fuzzy,
-                    end_fuzzy)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"""
+                    end_fuzzy,
+                    run_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"""
             TRN.add(sql_cds_info, args_cds_info, many=True)
 
+            sql_extract_kofamscan_run_info = """
+                SELECT run_id FROM run_info
+                WHERE software = 'kofamscan' and version = ? and commands = ?"""
+            TRN.add(
+                sql_extract_kofamscan_run_info, [kofamscan_version, kofamscan_commands]
+            )
+            kofamscan_run_id = TRN.execute_fetchflatten()
+
+            if not kofamscan_run_id:
+                sql_run_info_kofamscan = """
+                    INSERT INTO run_info (software, version, commands)
+                    VALUES (?, ?, ?) RETURNING run_id"""
+                args_run_info_kofamscan = [
+                    "kofamscan",
+                    kofamscan_version,
+                    kofamscan_commands,
+                ]
+                TRN.add(sql_run_info_kofamscan, args_run_info_kofamscan)
+                kofamscan_run_id = TRN.execute_fetchflatten()
+
             kofamscan_df.insert(0, "entity_id", entity_id[0])
+            kofamscan_df["run_id"] = kofamscan_run_id[0]
             args_ko_info = kofamscan_df.values.tolist()
             sql_ko_info = """
                 INSERT INTO ko_info (
@@ -267,11 +316,32 @@ def annotation_pipeline(df, tmpdir, kofamscan_profile, kofamscan_kolist):
                     threshold,
                     score,
                     e_value,
-                    ko_definition)
-                VALUES (?, ?, ?, ?, ?, ?, ?);"""
+                    ko_definition,
+                    run_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?);"""
             TRN.add(sql_ko_info, args_ko_info, many=True)
 
+            barrnap_version = rrna_df["source"].tolist()[0]
+            sql_extract_barrnap_run_info = """
+                SELECT run_id FROM run_info
+                WHERE software = 'barrnap' and version = ? and commands = ?"""
+            TRN.add(sql_extract_barrnap_run_info, [barrnap_version, barrnap_commands])
+            barrnap_run_id = TRN.execute_fetchflatten()
+
+            if not barrnap_run_id:
+                sql_run_info_barrnap = """
+                    INSERT INTO run_info (software, version, commands)
+                    VALUES (?, ?, ?) RETURNING run_id"""
+                args_run_info_barrnap = [
+                    "barrnap",
+                    barrnap_version,
+                    barrnap_commands,
+                ]
+                TRN.add(sql_run_info_barrnap, args_run_info_barrnap)
+                barrnap_run_id = TRN.execute_fetchflatten()
+
             rrna_df.insert(0, "entity_id", entity_id[0])
+            rrna_df["run_info"] = barrnap_run_id[0]
             args_rrna_info = rrna_df.values.tolist()
             sql_rrna_info = """
                 INSERT INTO rrna_info (
@@ -287,8 +357,9 @@ def annotation_pipeline(df, tmpdir, kofamscan_profile, kofamscan_kolist):
                     source,
                     note,
                     start_fuzzy,
-                    end_fuzzy)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"""
+                    end_fuzzy,
+                    run_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"""
             TRN.add(sql_rrna_info, args_rrna_info, many=True)
 
             TRN.execute()

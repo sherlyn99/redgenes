@@ -26,12 +26,13 @@ create table if not exists md_info(
 
 create table if not exists run_info(
     run_id integer primary key autoincrement,
-    software varchar,
-    version varchar,
-    commands varchar, 
+    software varchar not null,
+    version varchar not null,
+    commands varchar not null, 
     notes varchar,
     created_at timestamp default current_timestamp,
-    modified_at timestamp default current_timestamp
+    modified_at timestamp default current_timestamp, 
+    unique(software, version, commands)
 );
 
 -- store prodigal outputs
