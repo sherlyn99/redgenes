@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS bakta (
     KEGG varchar,
     PFAM varchar,
     run_accession integer,
-    created_at timestamp default current_timestamp,
+    created_at timestamp default current_timestamp not null,
+    updated_at timestamp default current_timestamp not null,
     foreign key (run_accession) references run_info (run_accession),
     foreign key (entity_id) references identifier (entity_id)
 );
@@ -57,7 +58,8 @@ CREATE TABLE IF NOT EXISTS quast (
     total_length_50000bp integer,
     nN_per_100kbp integer,
     run_accession integer,
-    created_at timestamp default current_timestamp,
+    created_at timestamp default current_timestamp not null,
+    updated_at timestamp default current_timestamp not null,
     foreign key (run_accession) references run_info (run_accession),
     foreign key (entity_id) references identifier (entity_id)
 );
