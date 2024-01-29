@@ -7,8 +7,8 @@ create table if not exists identifier(
     filename_full varchar not null, -- with suffix
     filepath varchar not null,
     active integer default 1,
-    created_at timestamp default current_timestamp,
-    modified_at timestamp default current_timestamp,
+    created_at timestamp default current_timestamp not null,
+    modified_at timestamp default current_timestamp not null,
     unique(filename_full, filepath)
 );
 
@@ -18,20 +18,21 @@ create table if not exists md_info(
     source varchar not null,                 -- NCBI/external
     source_detailed varchar,        -- zengler
     external_accession varchar,
-    created_at timestamp default current_timestamp,
-    modified_at timestamp default current_timestamp,
+    created_at timestamp default current_timestamp not null,
+    modified_at timestamp default current_timestamp not null,
     foreign key (entity_id) references identifier (entity_id),
     unique(md_id, entity_id)
 );
 
 create table if not exists run_info(
     run_id integer primary key autoincrement,
-    software varchar,
-    version varchar,
-    commands varchar, 
+    software varchar not null,
+    version varchar not null,
+    commands varchar not null, 
     notes varchar,
-    created_at timestamp default current_timestamp,
-    modified_at timestamp default current_timestamp
+    created_at timestamp default current_timestamp not null,
+    modified_at timestamp default current_timestamp not null, 
+    unique(software, version, commands)
 );
 
 -- store prodigal outputs
@@ -63,8 +64,8 @@ create table if not exists cds_info(
     start_fuzzy varchar not null, 
     end_fuzzy varchar not null,
     run_id integer, 
-    created_at timestamp default current_timestamp,
-    modified_at timestamp default current_timestamp,
+    created_at timestamp default current_timestamp not null,
+    modified_at timestamp default current_timestamp not null,
     foreign key (entity_id) references identifier (entity_id),
     foreign key (run_id) references run_info (run_id),
     unique(entity_id, contig_id, gene_id, gene_type, start)
@@ -81,8 +82,8 @@ create table if not exists ko_info(
     e_value real not null, 
     ko_definition varchar not null, 
     run_id integer,
-    created_at timestamp default current_timestamp,
-    modified_at timestamp default current_timestamp,
+    created_at timestamp default current_timestamp not null,
+    modified_at timestamp default current_timestamp not null,
     foreign key (entity_id) references identifier (entity_id),
     foreign key (run_id) references run_info (run_id),
     unique(entity_id, gene_name, ko, threshold)
@@ -105,8 +106,8 @@ create table if not exists rrna_info(
     start_fuzzy varchar not null, -- 1: True, 0: False
     end_fuzzy varchar not null, -- 1: True, 0: False
     run_id integer,
-    created_at timestamp default current_timestamp,
-    modified_at timestamp default current_timestamp,
+    created_at timestamp default current_timestamp not null,
+    modified_at timestamp default current_timestamp not null,
     foreign key (entity_id) references identifier (entity_id),
     foreign key (run_id) references run_info (run_id),
     unique(entity_id, contig_id, rrna_name, start)
