@@ -1,7 +1,11 @@
+import sys
+import time
+import numpy as np
 import pandas as pd
 from pathlib import Path
 from redgenes.sql_initialize_db import initialize_db
 from redgenes.utils import (
+    MD_HEADER,
     copy_and_unzip,
     run_command_and_check_outputs,
     read_gff_file,
@@ -77,12 +81,15 @@ def run_barrnap(input_fasta, outdir, cpu=1):
     return str(barrnap_output_gff), commands_str
 
 
-def extract_md_info(tsv_file):
-    """Load data from tsv and checks data integrity."""
-    df = pd.read_csv(tsv_file, sep="\t", dtype=str)
+def extract_md_info(md_str):
+    """Load data from input and checks data integrity."""
+    data = md_str.split("\t")
+    data_with_nan = [np.nan if x == "" else x for x in data]
+    df = pd.DataFrame([data_with_nan], columns=MD_HEADER)
+    # df = pd.read_csv(tsv_file, sep="\t", dtype=str)
 
     if df.shape[1] != 40:
-        raise InvalidInputTsv(f"Invalid input TSV: {tsv_file}")
+        raise InvalidInputTsv(f"Invalid input metadata string: {data[0]}")
 
     df["annotation_date"] = pd.to_datetime(df["annotation_date"], errors="coerce")
     dtype_map = {
@@ -116,8 +123,8 @@ def extract_prodigal_results(gff_path):
         "rscore": float,
         "uscore": float,
         "tscore": float,
-        "start_fuzzy": bool,
-        "end_fuzzy": bool,
+        "start_fuzzy": str,
+        "end_fuzzy": str,
     }
     cols_to_front = ["contig_id", "ID", "type", "start", "end", "conf", "score"]
     gff_df = process_gff_info(attributes_df, cols_to_front, dtype_map)
@@ -163,8 +170,8 @@ def extract_barrnap_results(gff_path):
         "score": float,
         "start": int,
         "end": int,
-        "start_fuzzy": bool,
-        "end_fuzzy": bool,
+        "start_fuzzy": str,
+        "end_fuzzy": str,
     }
     cols_to_first = [
         "contig_id",
@@ -172,9 +179,11 @@ def extract_barrnap_results(gff_path):
         "rrna_name",
         "start",
         "end",
-        "score",
         "strand",
-        "product",
+        "source",
+        "score",
+        "start_fuzzy",
+        "end_fuzzy",
     ]
     gff_df = process_gff_info(attributes_df, cols_to_first, dtype_map)
     return gff_df
@@ -183,11 +192,11 @@ def extract_barrnap_results(gff_path):
 def annotation_pipeline(df, tmpdir, kofamscan_profile, kofamscan_kolist):
     for _, row in df.iterrows():
         # Prepare data for 'identifier' table and 'md_info' table
-        local_path = row["local_path"]
-        filename = row["assembly_accession"]
+        local_path = row["local_path"].strip()
+        filename = row["assembly_accession"].strip()
 
-        source = row["source"]
-        external_accession = row["assembly_accession"]
+        source = row["source"].strip()
+        external_accession = row["assembly_accession"].strip()
 
         # Run genome annotation pipeline
         with copy_and_unzip(local_path, tmpdir) as input_fasta:
@@ -253,6 +262,7 @@ def annotation_pipeline(df, tmpdir, kofamscan_profile, kofamscan_kolist):
                 TRN.add(sql_run_info_prodigal, args_run_info_prodigal)
                 prodigal_run_id = TRN.execute_fetchflatten()
 
+            cds_df = cds_df.drop("note", axis=1)
             cds_df.insert(0, "entity_id", entity_id[0])
             cds_df["run_id"] = prodigal_run_id[0]
             args_cds_info = cds_df.values.tolist()
@@ -343,6 +353,8 @@ def annotation_pipeline(df, tmpdir, kofamscan_profile, kofamscan_kolist):
             rrna_df.insert(0, "entity_id", entity_id[0])
             rrna_df["run_info"] = barrnap_run_id[0]
             args_rrna_info = rrna_df.values.tolist()
+            print("***** ready to insert with arguments")
+            print(args_rrna_info)
             sql_rrna_info = """
                 INSERT INTO rrna_info (
                     entity_id,
@@ -351,13 +363,13 @@ def annotation_pipeline(df, tmpdir, kofamscan_profile, kofamscan_kolist):
                     rrna_name,
                     start,
                     end,
-                    score,
                     strand,
-                    product,
                     source,
-                    note,
+                    score,
                     start_fuzzy,
                     end_fuzzy,
+                    product,
+                    note,
                     run_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"""
             TRN.add(sql_rrna_info, args_rrna_info, many=True)
@@ -370,14 +382,23 @@ def annotation_pipeline(df, tmpdir, kofamscan_profile, kofamscan_kolist):
 def main():
     initialize_db()
 
-    md_tsv = "./redgenes/tests/data/md_gordon_2.tsv"
-    md_df = extract_md_info(md_tsv)
+    # md_tsv = "./redgenes/tests/data/md_gordon_2.tsv"
+    md_str = sys.argv[1]
+    md_df = extract_md_info(md_str)
+
+    # start_time = time.time()
 
     ko_profile = "/projects/greengenes2/20231117_annotations_prelim/kofam_scan/profiles/test_subset.hal"
     ko_kolist = (
         "/projects/greengenes2/20231117_annotations_prelim/kofam_scan/ko_list_subset"
     )
-    annotation_pipeline(md_df, "./test_out", ko_profile, ko_kolist)
+    annotation_pipeline(md_df, "/panfs/y1weng/test_out2", ko_profile, ko_kolist)
+
+    # end_time = time.time()
+    # execution_time = end_time - start_time
+
+    # with open("home/y1weng/execution_time.txt", "w") as file:
+    #   file.write(f"Script execution time: {execution_time:.2f} seconds")
 
 
 if __name__ == "__main__":
