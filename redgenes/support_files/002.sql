@@ -15,7 +15,7 @@ create table if not exists identifier(
 create table if not exists md_info(
     md_id integer primary key autoincrement,
     entity_id integer not null, 
-    source varchar not null,                 -- NCBI/external
+    source varchar not null,        -- NCBI/external
     source_detailed varchar,        -- zengler
     external_accession varchar,
     created_at timestamp default current_timestamp not null,
@@ -101,10 +101,10 @@ create table if not exists rrna_info(
     strand int not null, 
     source varchar not null, 
     score real not null, 
+    start_fuzzy varchar not null,
+    end_fuzzy varchar not null,
     product varchar, 
     note varchar,
-    start_fuzzy varchar not null, -- 1: True, 0: False
-    end_fuzzy varchar not null, -- 1: True, 0: False
     run_id integer,
     created_at timestamp default current_timestamp not null,
     modified_at timestamp default current_timestamp not null,

@@ -8,6 +8,53 @@ from contextlib import contextmanager
 
 
 ################################
+# Constant values
+################################
+MD_HEADER = [
+    "assembly_accession",
+    "bioproject",
+    "biosample",
+    "wgs_master",
+    "refseq_category",
+    "taxid",
+    "species_taxid",
+    "organism_name",
+    "infraspecific_name",
+    "isolate",
+    "version_status",
+    "assembly_level",
+    "release_type",
+    "genome_rep",
+    "seq_rel_date",
+    "asm_name",
+    "asm_submitter",
+    "gbrs_paired_asm",
+    "paired_asm_comp",
+    "ftp_path",
+    "excluded_from_refseq",
+    "relation_to_type_material",
+    "asm_not_live_date",
+    "assembly_type",
+    "group",
+    "genome_size",
+    "genome_size_ungapped",
+    "gc_percent",
+    "replicon_count",
+    "scaffold_count",
+    "contig_count",
+    "annotation_provider",
+    "annotation_name",
+    "annotation_date",
+    "total_gene_count",
+    "protein_coding_gene_count",
+    "non_coding_gene_count",
+    "pubmed_id",
+    "source",
+    "local_path",
+]
+
+
+################################
 # Extract data from GFF3 files
 ################################
 def read_gff_file(gff_path: str):
@@ -24,6 +71,9 @@ def extract_gff_info(gen):
         for record in contig[1]._intervals:
             attributes = record.metadata
             attributes["contig_id"] = contig_id  # Assumes contig_id always not null
+
+            if "note" not in attributes:
+                attributes["note"] = None
 
             try:
                 # Sanity check: start, end values should be convertable to integers
@@ -103,12 +153,20 @@ def run_command_and_check_outputs(commands, error, files=None, shell_bool=False)
 def copy_and_unzip(zip_path, tmp_dir):
     """Given a zipped fna file and a temp directory, creates a subdirectory and
     unzip the fna file in the subdirectory. Remove the subdirectory when done."""
-    source_path = Path(zip_path)
 
-    if not source_path.exists():
-        raise FileNotFoundError(
-            f"Error in context manager: the zipfile {zip_path} does not exist."
-        )
+    if "*" in zip_path:
+        source_paths = list(Path(zip_path).parent.glob("*.fna.gz"))
+        if not source_paths:
+            raise FileNotFoundError(f"No matching files found for pattern: {zip_path}")
+        else:
+            source_path = source_paths[0]
+
+    else:
+        source_path = Path(zip_path)
+        if not source_path.exists():
+            raise FileNotFoundError(
+                f"Error in context manager: the zipfile {zip_path} does not exist."
+            )
 
     source_filename = source_path.name  # genome1.fna.gz
     source_filename_unzipped = Path(source_filename).stem  # genome1.fna
@@ -119,9 +177,11 @@ def copy_and_unzip(zip_path, tmp_dir):
 
     target_file = target_path / source_filename_unzipped
 
+    open_func = gzip.open if str(source_path).endswith(".gz") else open
+
     try:
         # Unzip a fasta file into tmpdir/genomename
-        with gzip.open(source_path, "rt") as compressed_file, open(
+        with open_func(source_path, "rt") as compressed_file, open(
             target_file, "w"
         ) as decompressed_file:
             shutil.copyfileobj(compressed_file, decompressed_file)
@@ -130,3 +190,35 @@ def copy_and_unzip(zip_path, tmp_dir):
 
     finally:
         shutil.rmtree(target_path)
+
+
+# if __name__ == "__main__":
+#     import sys
+#     import numpy as np
+
+#     md_str = sys.argv[1]
+#     data = md_str.split("\t")
+#     data_with_nan = [np.nan if x == "" else x for x in data]
+#     df = pd.DataFrame([data_with_nan], columns=MD_HEADER)
+
+#     if df.shape[1] != 40:
+#         raise ValueError(f"Invalid input metadata string: {data[0]}")
+
+#     df["annotation_date"] = pd.to_datetime(df["annotation_date"], errors="coerce")
+#     dtype_map = {
+#         "taxid": "Int64",
+#         "species_taxid": "Int64",
+#         "gc_percent": float,
+#         "replicon_count": "Int64",
+#         "scaffold_count": "Int64",
+#         "contig_count": "Int64",
+#         "total_gene_count": "Int64",
+#         "protein_coding_gene_count": "Int64",
+#         "non_coding_gene_count": "Int64",
+#     }
+#     df = df.astype(dtype_map)
+
+#     for _, row in df.iterrows():
+#         # Prepare data for 'identifier' table and 'md_info' table
+#         local_path = row["local_path"]
+#         print(repr(local_path.strip()))
