@@ -6,23 +6,16 @@ BEGIN TRANSACTION;
 -- create table: bakta
 CREATE TABLE IF NOT EXISTS bakta (
     bakta_accession integer primary key autoincrement,
-    entity_id varchar,
+    entity_id integer,
     contig_id varchar,
-    gene_id varchar,
-    source varchar,
     type varchar,
+    gene_id varchar,
     start integer,
-    end integer,
+    stop integer,
     strand varchar,
-    phase varchar,
-    name varchar,
+    locus_tag varchar,
+    gene varchar,
     product varchar,
-    RefSeq varchar,
-    SO varchar,
-    UniParc varchar,
-    Uniref varchar,
-    KEGG varchar,
-    PFAM varchar,
     run_accession integer,
     created_at timestamp default current_timestamp not null,
     updated_at timestamp default current_timestamp not null,
@@ -30,11 +23,47 @@ CREATE TABLE IF NOT EXISTS bakta (
     foreign key (entity_id) references identifier (entity_id)
 );
 
+CREATE TABLE IF NOT EXISTS refseq (
+    refseq_accession INTEGER PRIMARY KEY AUTOINCREMENT,
+    bakta_accession INTEGER NOT NULL,
+    RefSeq varchar NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS so (
+    so_accession INTEGER PRIMARY KEY AUTOINCREMENT,
+    bakta_accession INTEGER NOT NULL,
+    SO varchar NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS uniparc (
+    uniparc_accession INTEGER PRIMARY KEY AUTOINCREMENT,
+    bakta_accession INTEGER NOT NULL,
+    UniParc varchar NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS uniref (
+    uniref_accession INTEGER PRIMARY KEY AUTOINCREMENT,
+    bakta_accession INTEGER NOT NULL,
+    UniRef varchar NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS kegg (
+    kegg_accession INTEGER PRIMARY KEY AUTOINCREMENT,
+    bakta_accession INTEGER NOT NULL,
+    KEGG varchar NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS pfam (
+    pfam_accession INTEGER PRIMARY KEY AUTOINCREMENT,
+    bakta_accession INTEGER NOT NULL,
+    PFAM varchar NOT NULL
+);
+
 -- create table: quast
 -- may reduce the number of fields in the future
 CREATE TABLE IF NOT EXISTS quast (
     quast_accession integer primary key autoincrement,
-    entity_id varchar,
+    entity_id integer,
     total_length integer,
     largest_contig integer,
     ncontigs integer,
