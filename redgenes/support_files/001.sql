@@ -26,37 +26,43 @@ CREATE TABLE IF NOT EXISTS bakta (
 CREATE TABLE IF NOT EXISTS refseq (
     refseq_accession INTEGER PRIMARY KEY AUTOINCREMENT,
     bakta_accession INTEGER NOT NULL,
-    RefSeq varchar NOT NULL
+    RefSeq varchar NOT NULL,
+    foreign key (bakta_accession) references bakta (bakta_accession)
 );
 
 CREATE TABLE IF NOT EXISTS so (
     so_accession INTEGER PRIMARY KEY AUTOINCREMENT,
     bakta_accession INTEGER NOT NULL,
-    SO varchar NOT NULL
+    SO varchar NOT NULL,
+    foreign key (bakta_accession) references bakta (bakta_accession)
 );
 
 CREATE TABLE IF NOT EXISTS uniparc (
     uniparc_accession INTEGER PRIMARY KEY AUTOINCREMENT,
     bakta_accession INTEGER NOT NULL,
-    UniParc varchar NOT NULL
+    UniParc varchar NOT NULL,
+    foreign key (bakta_accession) references bakta (bakta_accession)
 );
 
 CREATE TABLE IF NOT EXISTS uniref (
     uniref_accession INTEGER PRIMARY KEY AUTOINCREMENT,
     bakta_accession INTEGER NOT NULL,
-    UniRef varchar NOT NULL
+    UniRef varchar NOT NULL,
+    foreign key (bakta_accession) references bakta (bakta_accession)
 );
 
 CREATE TABLE IF NOT EXISTS kegg (
     kegg_accession INTEGER PRIMARY KEY AUTOINCREMENT,
     bakta_accession INTEGER NOT NULL,
-    KEGG varchar NOT NULL
+    KEGG varchar NOT NULL,
+    foreign key (bakta_accession) references bakta (bakta_accession)
 );
 
 CREATE TABLE IF NOT EXISTS pfam (
     pfam_accession INTEGER PRIMARY KEY AUTOINCREMENT,
     bakta_accession INTEGER NOT NULL,
-    PFAM varchar NOT NULL
+    PFAM varchar NOT NULL,
+    foreign key (bakta_accession) references bakta (bakta_accession)
 );
 
 -- create table: quast
