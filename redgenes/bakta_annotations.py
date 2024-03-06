@@ -37,9 +37,10 @@ def insert_dbxref_info(bakta_accesion, dbxref_data):
     """
     Insert dbxref information into corresponding tables.
     """
+    valid_tables = {'kegg', 'refseq', 'uniparc', 'uniref', 'so', 'pfam'} 
     for dbxref_type, accession_list in dbxref_data.items():
         table_name = dbxref_type.lower()  # Assuming table names are lowercase versions of dbxref types
-        if table_name in ['kegg', 'refseq', 'uniparc', 'uniref', 'so', 'pfam']:  # Check if table_name is valid
+        if table_name in valid_tables:
             sql = f"INSERT INTO {table_name} (bakta_accession, {table_name.upper()}) VALUES (?, ?)"
             for accession in accession_list:
                 TRN.add(sql, [bakta_accesion, accession])
