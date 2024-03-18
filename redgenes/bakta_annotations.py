@@ -40,13 +40,13 @@ def insert_dbxref_info(bakta_accesion, dbxref_data):
     valid_tables = {'kegg', 'refseq', 'uniparc', 'uniref', 'so', 'pfam'} 
     for dbxref_type, accession_list in dbxref_data.items():
         table_name = dbxref_type.lower()  # Assuming table names are lowercase versions of dbxref types
-        if table_name in valid_tables:
+        if table_name in valid_tables:  # Check if table_name is valid
             sql = f"INSERT INTO {table_name} (bakta_accession, {table_name.upper()}) VALUES (?, ?)"
             for accession in accession_list:
                 TRN.add(sql, [bakta_accesion, accession])
     TRN.execute()
 
-def run_bakta(input_fasta: Path, outdir: Path, bakta_db):
+def run_bakta(input_fasta, outdir, bakta_db):
     """
     Run Bakta and return the path to the output GFF and the command string.
     """
@@ -68,7 +68,7 @@ def run_bakta(input_fasta: Path, outdir: Path, bakta_db):
     )
     return bakta_output_tsv, commands_str
 
-def extract_md_info(tsv_file: Path):
+def extract_md_info(tsv_file):
     """
     Load data from TSV and check data integrity.
     """
@@ -79,20 +79,20 @@ def extract_md_info(tsv_file: Path):
         raise InvalidInputTsv(f"Invalid input TSV: {tsv_file}")
     df["annotation_date"] = pd.to_datetime(df["annotation_date"], errors="coerce")
     dtype_map = {
-        "taxid": "Int64",
-        "species_taxid": "Int64",
+        "taxid": "UInt32",
+        "species_taxid": "UInt32",
         "gc_percent": float,
-        "replicon_count": "Int64",
-        "scaffold_count": "Int64",
-        "contig_count": "Int64",
-        "total_gene_count": "Int64",
-        "protein_coding_gene_count": "Int64",
-        "non_coding_gene_count": "Int64",
+        "replicon_count": "UInt32",
+        "scaffold_count": "UInt32",
+        "contig_count": "UInt32",
+        "total_gene_count": "UInt32",
+        "protein_coding_gene_count": "UInt32",
+        "non_coding_gene_count": "UInt32"
     }
     df = df.astype(dtype_map)
     return df
 
-def extract_bakta_results(gff_path: Path):
+def extract_bakta_results(gff_path):
     """
     Extract information from a Bakta GFF output file.
     """
@@ -101,7 +101,7 @@ def extract_bakta_results(gff_path: Path):
     df = pd.read_csv(gff_path, header=0, names=column_names, comment='#', sep='\t')
     return df
 
-def annotation_pipeline(df: pd.DataFrame, tmpdir: Path, bakta_db: Path):
+def annotation_pipeline(df, tmpdir, bakta_db):
     """
     Annotate genomes based on Bakta and insert information into the database.
     """
