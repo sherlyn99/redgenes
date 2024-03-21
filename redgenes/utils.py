@@ -5,6 +5,7 @@ import pandas as pd
 from pathlib import Path
 from skbio.io import read
 from contextlib import contextmanager
+from subprocess import run, PIPE, CalledProcessError
 
 
 ################################
@@ -146,6 +147,13 @@ def run_command_and_check_outputs(commands, error, files=None, shell_bool=False)
     return res, " ".join(list(map(str, commands)))
 
 
+def run_bash(commands):
+    try:
+        ps = run(commands, stdout=PIPE, stderr=PIPE, check=True, text=True)
+    except CalledProcessError as e:
+        print(f"Command failed with exit code {e.returncode}:\n{e.stderr}\n{e.stdout}")
+
+
 ################################
 # Zip and unzip fasta files
 ################################
@@ -192,33 +200,11 @@ def copy_and_unzip(zip_path, tmp_dir):
         shutil.rmtree(target_path)
 
 
-# if __name__ == "__main__":
-#     import sys
-#     import numpy as np
+################################
+# Clean up temporary directory
+################################
+def _unlink_directory(path):
+    def f():
+        shutil.rmtree(path)
 
-#     md_str = sys.argv[1]
-#     data = md_str.split("\t")
-#     data_with_nan = [np.nan if x == "" else x for x in data]
-#     df = pd.DataFrame([data_with_nan], columns=MD_HEADER)
-
-#     if df.shape[1] != 40:
-#         raise ValueError(f"Invalid input metadata string: {data[0]}")
-
-#     df["annotation_date"] = pd.to_datetime(df["annotation_date"], errors="coerce")
-#     dtype_map = {
-#         "taxid": "Int64",
-#         "species_taxid": "Int64",
-#         "gc_percent": float,
-#         "replicon_count": "Int64",
-#         "scaffold_count": "Int64",
-#         "contig_count": "Int64",
-#         "total_gene_count": "Int64",
-#         "protein_coding_gene_count": "Int64",
-#         "non_coding_gene_count": "Int64",
-#     }
-#     df = df.astype(dtype_map)
-
-#     for _, row in df.iterrows():
-#         # Prepare data for 'identifier' table and 'md_info' table
-#         local_path = row["local_path"]
-#         print(repr(local_path.strip()))
+    return f
