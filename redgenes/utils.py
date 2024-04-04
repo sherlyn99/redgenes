@@ -1,11 +1,16 @@
+import sys
 import gzip
 import shutil
+import logging
 import subprocess
 import pandas as pd
 from pathlib import Path
 from skbio.io import read
 from contextlib import contextmanager
 from subprocess import run, PIPE, CalledProcessError
+
+
+logger = logging.getLogger("redgenes")
 
 
 ################################
@@ -151,7 +156,9 @@ def run_bash(commands):
     try:
         ps = run(commands, stdout=PIPE, stderr=PIPE, check=True, text=True)
     except CalledProcessError as e:
-        print(f"Command failed with exit code {e.returncode}:\n{e.stderr}\n{e.stdout}")
+        logger.error(
+            f"Command failed with exit code {e.returncode}:\n{e.stderr}\n{e.stdout}"
+        )
 
 
 ################################
@@ -181,6 +188,8 @@ def copy_and_unzip(zip_path, tmp_dir):
     source_stem = Path(source_filename_unzipped).stem  # genome1
 
     target_path = Path(tmp_dir) / source_stem
+    if target_path.exists() and target_path.is_dir():
+        shutil.rmtree(target_path)  # overwrite if the tmpdir/genome1 already exists
     target_path.mkdir(parents=True)
 
     target_file = target_path / source_filename_unzipped
@@ -208,3 +217,19 @@ def _unlink_directory(path):
         shutil.rmtree(path)
 
     return f
+
+
+################################
+# Generate log file
+################################
+def create_logfile(logger, filename):
+    formatter = logging.Formatter("%(asctime)s:%(name)s:%(levelname)s:%(message)s")
+
+    logger.setLevel(logging.INFO)
+    filer_handler = logging.FileHandler(filename)
+    filer_handler.setFormatter(formatter)
+    logger.addHandler(filer_handler)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
+    return logger

@@ -1,7 +1,8 @@
 import ast
 from pathlib import Path
 from redgenes.sql_connection import TRN
-from redgenes.utils import run_bash
+from redgenes.utils import run_bash, copy_and_unzip
+from redgenes.metadata import insert_metadata
 
 
 def run_checkm(indir, outdir, threads=1):
@@ -54,7 +55,42 @@ def insert_checkm_results(entity_id, checkm_res):
                 coding_density,
                 translation_table,
                 num_predicted_genes)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """
-        args_checkm = [entity_id] + checkm_res
+        args_checkm = entity_id + checkm_res
         TRN.add(sql_checkm, args_checkm)
+
+
+def extract_and_insert_checkm_results(inpath, entity_id):
+    checkm_res = extract_checkm_results(inpath)
+    insert_checkm_results(entity_id, checkm_res)
+
+
+def qc_db_insertion(row, checkm_outpath, logger):
+    logger.info("QC db insertion started")
+    try:
+        with TRN:
+            entity_id = insert_metadata(row)
+            extract_and_insert_checkm_results(checkm_outpath, entity_id)
+    except Exception as e:
+        logger.error(f"Error at database insertion: {e}")
+    else:
+        logger.info("QC db insertion finished")
+
+
+def qc_bash_and_db_insertion(row, working_dir, threads, logger):
+    local_path = row["local_path"].strip()
+
+    with copy_and_unzip(local_path, working_dir) as input_fasta:
+        logger.info(f"******Unzipped {Path(input_fasta).name}")
+        curr_tmpdir = Path(input_fasta).parent
+
+        logger.info("CheckM started")
+        checkm_outpath = run_checkm(
+            curr_tmpdir,
+            curr_tmpdir / "checkm_out",
+            threads,
+        )
+        logger.info("CheckM finished")
+
+        qc_db_insertion(row, checkm_outpath, logger)
