@@ -1,8 +1,7 @@
 import ast
-import pandas as pd
 from pathlib import Path
 from redgenes.sql_connection import TRN
-from redgenes.quality_control_utils import run_bash
+from redgenes.utils import run_bash
 
 
 def run_checkm(indir, outdir, threads=1):
