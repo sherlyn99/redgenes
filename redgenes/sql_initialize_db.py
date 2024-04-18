@@ -1,6 +1,6 @@
 from pathlib import Path
-from redgenes.sql_connection import TRN
-from redgenes.exceptions import PatchDirectoryNotFound, PatchFileExecutionError
+from sql_connection import TRN
+from exceptions import PatchDirectoryNotFound, PatchFileExecutionError
 
 
 def get_patch_list(patch_dir):
@@ -31,7 +31,7 @@ def execute_patch_file(patch: Path):
 def initialize_db():
     """Update patch files in settings table and execute new patches."""
     # Get patch file lists
-    patch_list = get_patch_list("./redgenes/support_files")
+    patch_list = get_patch_list("support_files")
     patch_ids = [[int(patch.stem)] for patch in patch_list]  # for TRN.add(many=True)
     patch_dict = {int(patch.stem): patch for patch in patch_list}
     patch_init = patch_list[0]

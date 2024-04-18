@@ -34,6 +34,10 @@ class BarrnapError(AnnotationError):
     pass
 
 
+class BaktaError(AnnotationError):
+    pass
+
+
 class InputError(Error):
     pass
 
