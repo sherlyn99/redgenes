@@ -1,22 +1,10 @@
 #!/bin/bash
-#SBATCH -J 500_ncbi_redgenes
-#SBATCH -p short
-#SBATCH -t 20:00:00
-#SBATCH -N 1
-#SBATCH -c 4
-#SBATCH --mem 64g
-#SBATCH -o /panfs/roles/redgenes/slurm-%x-%A-%a-%j-%N.out
-#SBATCH -e /panfs/roles/redgenes/slurm-%x-%A-%a-%j-%N.err
-#SBATCH --export ALL
-#SBATCH --mail-type=ALL,TIME_LIMIT_50,TIME_LIMIT_90
-#SBATCH --mail-user=roles@health.ucsd.edu
+#SBATCH --nodes=1
+#SBATCH --time=60:00:00
+#SBATCH --mem=50G
+#SBATCH --mail-type=END,FAIL
+#SBATCH --mail-user=roles@ucsd.edu
 
-set -x
-set -e
-set -o pipefail
-
-source /home/roles/anaconda/bin/activate
-conda activate checkm_bakta
 
 # Check input parameters
 if [ "$#" -ne 3 ]; then
@@ -34,23 +22,33 @@ mkdir -p "$output_dir"
 # Function to process each FASTA file
 process_fasta() {
     fasta_file=$1
-    base_name=$(basename "$fasta_file" .fasta)
+    local_output_dir=$2
+    echo "Processing Fasta file: $fasta_file"
+    echo "Using Output directory: $local_output_dir"
+
+    base_name=$(basename "$fasta_file" .fa)
 
     # Create directory for each fasta file in the specified output directory
-    sample_dir="$output_dir/$base_name"
+    sample_dir="$local_output_dir/$base_name"
+    echo "Creating Sample Directory: $sample_dir"
+
     mkdir -p "$sample_dir/checkm"
     mkdir -p "$sample_dir/bakta"
 
+    cp $fasta_file $sample_dir
+
     # Run CheckM
-    checkm lineage_wf --tab_table -x fasta "$fasta_file" "$sample_dir/checkm" > "$sample_dir/checkm/lineage.log"
+    checkm lineage_wf --tab_table -x fa "$sample_dir" "$sample_dir/checkm" > "$sample_dir/checkm/lineage.log"
     if [ $? -ne 0 ]; then
         echo "CheckM failed for $fasta_file"
         return 1
     fi
 
     # Extract completeness and contamination from lineage.log
-    completeness=$(awk '/Completeness/ {print $12}' "$sample_dir/checkm/lineage.log")
-    contamination=$(awk '/Contamination/ {print $13}' "$sample_dir/checkm/lineage.log")
+    completeness=$(awk -v id="$base_name" '$0 ~ id {print $13}' "$sample_dir/checkm/lineage.log")
+    contamination=$(awk -v id="$base_name" '$0 ~ id {print $14}' "$sample_dir/checkm/lineage.log")
+
+    echo "$completeness $contamination"
     if (( $(echo "$completeness > 95 && $contamination < 5" | bc -l) )); then
         echo "PASS" > "$sample_dir/checkm_results.txt"
     else
@@ -72,16 +70,19 @@ process_fasta() {
 }
 
 export -f process_fasta
+export input_dir
+export output_dir
 
-# Find all fasta files and process them in parallel, but serially per file for CheckM and Bakta
-find "$input_dir" -name "*.fasta" -print0 | parallel -0 -j $parallel_jobs -I{} bash -c 'process_fasta "{}"'
+# Use xargs to process fasta files
+find "$input_dir" -name "*.fa" -print0 | xargs -0 -n 1 -P $parallel_jobs -I {} bash -c 'process_fasta "{}" "$output_dir"'
 
 # Create metadata file
 metadata_file="$output_dir/${output_dir##*/}_metadata.txt"
 touch "$metadata_file"
 
-for fasta_file in "$input_dir"/*.fasta; do
-    base_name=$(basename "$fasta_file" .fasta)
+# Iterate over fasta files to build the metadata file
+for fasta_file in "$input_dir"/*.fa; do
+    base_name=$(basename "$fasta_file" .fa)
     sample_dir="$output_dir/$base_name"
     checkm_output_file="$sample_dir/checkm/lineage.log"
     bakta_output_file="$sample_dir/bakta/$base_name.tsv"
@@ -89,4 +90,3 @@ for fasta_file in "$input_dir"/*.fasta; do
 done
 
 echo "Metadata compilation complete."
-conda deactivate
